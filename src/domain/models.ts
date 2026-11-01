@@ -3,6 +3,7 @@
 // Transport validates server payloads against these at the boundary; everything downstream trusts the types.
 // Shapes are taken from server.js and verified against the captured fixtures (tests/domain/schemas.test.ts).
 import { z } from 'zod';
+import { DEFAULT_VEHICLE_TYPE } from './vehicles';
 
 export const TruckStatusSchema = z.enum(['active', 'idle', 'maintenance']);
 export type TruckStatus = z.infer<typeof TruckStatusSchema>;
@@ -45,6 +46,8 @@ export const FleetTruckSchema = z.object({
   engineTemp: z.number(),
   currentRouteId: z.string().nullable(),
   _version: z.number(),
+  // Not sent by the mock server today → default. A real backend would send it (from its vehicle DB).
+  vehicleType: z.string().default(DEFAULT_VEHICLE_TYPE),
 });
 export type FleetTruck = z.infer<typeof FleetTruckSchema>;
 

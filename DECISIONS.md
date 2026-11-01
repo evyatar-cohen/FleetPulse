@@ -95,3 +95,66 @@ Feeds the README and interview prep.
 - **Decision:** `npm run typecheck` (`tsc --noEmit`); `npm test` runs Vitest only.
 - **Why:** Vitest strips types without checking them; `tsc` is the real type checker.
 - **Trade-off:** two commands to run before committing.
+
+---
+
+## Phase 2 — Telemetry pipeline
+
+### D11. Order readings by timestamp; reject readings from the future
+- **Decision:** a reading becomes the truck's current state only if its timestamp is newer than the current one
+  (equal = duplicate, older = stale). A reading later than `now + 60 s` is rejected as a clock bug, where `now` is
+  the server send time of the event that carried it (`event.timestamp`).
+- **Alternatives:** trust arrival order; compare against the browser clock; no future guard.
+- **Why:** QUIRK #5 sends older readings late. Using the server's own timestamp avoids browser-clock differences.
+  The guard stops one bad timestamp from freezing a truck forever.
+- **Trade-off / limitation:** a truck whose clock is always > 60 s ahead looks frozen (all readings rejected).
+  In a real system the backend should fix or flag device clocks.
+
+### D12. A GPS batch goes through the same function as single readings
+- **Decision:** `ingestBatch()` loops over `ingestReading()`. Late readings (stale or batch) fill the path but
+  never move the marker; accepted readings do both.
+- **Alternatives:** separate batch logic; drop old readings entirely.
+- **Why:** one code path = fewer bugs; old positions still show where the truck was.
+- **Limitation:** the server jitters batch positions randomly (±0.001°), so the path can zig-zag.
+
+### D13. The map path is a bounded tail: last 300 points per truck (~10 min)
+- **Decision:** `MAX_PATH_POINTS = 300`; when full, the oldest point is dropped.
+- **Alternatives:** thin older points to keep the whole trip at lower detail; keep everything.
+- **Why:** the live map answers "where is the truck and where is it going". Memory stays fixed
+  (~3,600 points ≈ 250 KB for 12 trucks) so the app can run for hours.
+- **Real-world note:** the full trip history belongs in a backend database; the UI would fetch it on demand.
+  Not possible here — the mock server's `/api/telemetry/history` returns random data.
+
+### D14. Vehicle profiles registry
+- **Decision:** every physical limit lives in `VEHICLE_PROFILES[vehicleType]` (`src/domain/vehicles.ts`).
+  Adding a vehicle type = one entry. The type comes from the server's fleet data (`vehicleType`, default `truck`);
+  an unknown type falls back to the default profile.
+- **Alternatives:** one global limit; `if (type === …)` branches in detectors.
+- **Why:** the same reading can be valid for one type and impossible for another (220 km/h: car yes, truck no).
+  Answers the grading question "add a vehicle type without touching existing code".
+- **Real-world note:** the type comes from the backend's vehicle DB inside the fleet payload, loaded once —
+  the frontend never queries a DB per reading.
+
+### D15. Sensor detector registry
+- **Decision:** each sensor check is a module with the same shape (`id`, `evaluate(previous, reading, profile)`);
+  `SENSOR_DETECTORS` lists them; the pipeline loops over the list. Detectors run only on accepted readings.
+- **Alternatives:** hardcoded checks inside the pipeline; class inheritance.
+- **Why:** adding a check = one file + one list entry, no pipeline change (proved by adding fuel after speed).
+- **Speed rule:** outside `0..profile.maxSpeedKmh` → show the last valid speed (or unknown) + `sensor_fault`.
+  Rejected "repeated identical value" — idle trucks really do report 0 repeatedly.
+
+### D16. Fuel: symmetric rate-of-change rule + confirmation window
+- **Decision:** a change faster than `maxFuelChangePerSecond` (1.5 pts/s), up or down, measured from the
+  **previous reading** (gap capped at 4 s), is `unverified` → show the last trusted value. Back near it → `glitch`;
+  still off 6 s after the jump started → accepted as real (`confirmed`). Outside 0..100 → `sensor_fault`. The episode
+  start is kept across `unverified` ↔ `sensor_fault`.
+- **Alternatives:** `fuel === 0` check; drop-only check; allowance measured from the last trusted reading.
+- **Why:** generic (not tied to this server's 0), catches impossible rises too (the 15% → 80% story in the brief),
+  never hides a real change for more than 6 s. Measuring from the previous reading keeps the allowance from
+  growing during a glitch; the gap cap means a big change after a pause/reconnect waits for the window.
+- **Review fixes (code review before merge):** the first version measured from the last trusted reading with
+  5 pts/s, so a held glitch was accepted early (15 → 0 accepted at 4 s), low-fuel drops (8 → 0) passed, any glitch
+  after a long gap passed, and an out-of-range reading reset the window. All covered by new tests.
+- **Trade-off / limitation:** a real sudden change is shown up to 6 s late. Below ~3% a drop to 0 fits the
+  allowance and isn't caught. If the stream stops while unverified, the value stays "checking" — the
+  connection-status indicator (Phase 3) covers it. The low-fuel alert must use only the trusted value (later phase).

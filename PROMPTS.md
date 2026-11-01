@@ -74,3 +74,43 @@ and never submit code I can't explain.
 
 **My notes**
 - _(add your own notes here)_
+
+---
+
+## Phase 2 — Telemetry pipeline
+
+**How I worked with the AI this phase**
+- Asked for a short checklist and one item at a time, after the AI's first plan message was too long.
+- Required TDD: for each step, the AI writes tests first, I approve them, then it writes the logic.
+- Before each implementation I asked the AI to explain the problem and list edge cases.
+
+**What the AI produced**
+- Pure functions in `src/domain/telemetry/`: ordering by timestamp, GPS batch handling, bounded path,
+  a sensor detector registry (speed, fuel) and vehicle profiles — 95 tests in total, using the Phase 0 fixtures.
+
+**What I questioned / changed / rejected**
+- **Test organization:** asked for tests organized by feature. The AI went too far (an index README); I rejected
+  it and kept only a short header comment in each test file.
+- **Future timestamps:** the AI suggested only documenting the "far-future timestamp" edge case; I chose to code it.
+  When I asked if 60 s was safe in the real world and said not to over-engineer, the AI replaced its
+  browser-clock + offset idea with a simpler one: compare against the server's own event timestamp.
+- **Path size:** I challenged "keep the last N points" ("don't we lose the whole path?"). We compared a recent tail,
+  thinning, and keep-all; I chose the tail (300 points ≈ 10 min) and asked to document that a real system keeps
+  full history in a backend DB.
+- **Speed limit:** I asked what happens at 220 km/h for a few seconds. That led to per-vehicle-type limits
+  (vehicle profiles) instead of one global number.
+- **Maintainability:** I asked for adding features and vehicle types to be easy → two registries
+  (vehicle profiles, sensor detectors). I asked where the vehicle type would come from, since the server doesn't
+  send one → it comes from the backend's fleet data; default `truck` for now.
+- **Fuel:** the AI's first rule only checked drops. I asked about an impossible *rise* (15 → 80) → the rule became
+  symmetric and time-based. I asked "what did we miss?" → 4 more scenarios (out-of-range values, values that keep
+  jumping, drift during the check, alerts using only trusted values). I asked for the full scenario list before tests.
+- **Code review before merge:** I asked for a review of the branch. It found 5 real bugs in the fuel detector
+  (e.g. a held glitch accepted as real after 4 s, low-fuel 8 → 0 not caught) and 3 cleanups. The AI verified each
+  by hand, wrote failing tests first (5 failed on the old code), then fixed them: measure the rate from the previous
+  reading, cap the gap, lower the rate to 1.5 pts/s, keep the episode start across statuses.
+- I asked why the window is 6 s and where the "4 s" came from → server.js QUIRK 2 (2–4 s) + one reading interval;
+  in the real world it would be tuned from logged glitch durations.
+
+**My notes**
+- _(add your own notes here)_

@@ -43,6 +43,14 @@ Grows as we go — each phase adds the new terms it introduces.
   Python equivalent: a `Union` of pydantic models with `Literal` `type` fields + a discriminator.
 - **Narrowing** — TS refining a type inside an `if` / `switch` branch, as in the example above.
 - **Literal type** — a type with exactly one value, e.g. `'telemetry'` (like `Literal['telemetry']`).
+- **interface** — describes the shape of an object (like a Python `TypedDict`).
+- **`readonly`** — TS forbids changing the array/field in place; enforces immutable updates.
+- **Spread `...`** — copies items into a new array/object: `[...a, x]` (like `[*a, x]` in Python),
+  `{ ...obj, speed: 0 }` (like `{**obj, 'speed': 0}`).
+- **`satisfies`** — checks a value matches a type but keeps its exact shape (e.g. known keys like `truck`).
+- **`keyof typeof X`** — the union of an object's key names, e.g. `'truck'`. Used for `VehicleType`.
+- **Type guard (`x is T`)** — a function returning boolean that also tells TS the type when true.
+- **`Partial<T>`** — the same type with every field optional. Tests use it to override only some fields.
 
 ## Validation
 
@@ -54,6 +62,15 @@ Grows as we go — each phase adds the new terms it introduces.
 - **"Parse, don't validate"** — check untrusted input once at the boundary (transport) and convert it into
   trusted typed data; inner code never re-checks.
 - **Trust boundary** — the point where data enters from outside our control (server messages, user input).
+
+## Design patterns
+
+- **Pure function** — output depends only on inputs; no I/O, no clock, no side effects. Easy to test.
+- **Immutable update** — return a new object instead of changing the old one. React notices changes by
+  comparing object identity, so mutating in place can leave the UI stale.
+
+- **Registry** — a list/map the pipeline reads (vehicle profiles, sensor detectors). Adding a feature = adding an
+  entry, not editing pipeline code (open/closed principle).
 
 ## React / frontend
 
