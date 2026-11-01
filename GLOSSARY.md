@@ -1,0 +1,87 @@
+# Glossary
+
+Key terms used in this project, in plain English, with Python comparisons where they help.
+Grows as we go — each phase adds the new terms it introduces.
+
+---
+
+## JavaScript / Node.js basics
+
+- **Node.js** — runs JavaScript outside the browser (like the `python` interpreter). Runs our mock server and tools.
+- **npm** — package manager for JS (like `pip`). Also runs scripts from `package.json` (`npm start`, `npm test`).
+- **package.json** — project file: name, scripts, dependencies (like `pyproject.toml`).
+- **dependencies vs devDependencies** — `dependencies` are needed to run the app (react, zod, express);
+  `devDependencies` only to build/test it (vite, vitest, typescript). Like main vs dev extras in Python.
+- **node_modules/** — folder where npm installs packages (like a virtualenv's `site-packages`). Never committed.
+- **package-lock.json** — exact versions of every installed package (like a `poetry.lock`). Committed, so
+  everyone installs the same versions.
+- **CommonJS vs ESM** — two module systems. CommonJS: `require()` / `module.exports` (old Node style — `server.js`
+  uses it). ESM: `import` / `export` (modern standard — our app uses it). Node picks the system per file:
+  `.cjs` = CommonJS, `.mjs` = ESM, `.js` = depends on `"type"` in package.json (default CommonJS).
+  `.mts` = TypeScript file treated as ESM.
+- **Promise** — an object for a result that comes later (like an `asyncio` Future).
+  **async / await** — same meaning as in Python: `await` waits for a Promise without blocking the event loop.
+- **Callback / event listener** — a function we hand over to be called later, e.g.
+  `ws.addEventListener('message', fn)` calls `fn` on every message.
+- **Event loop** — JS runs on one thread; I/O completes in the background and its callbacks run one at a time
+  (same model as `asyncio`). No two callbacks run at the same moment — but their *order* is not guaranteed.
+
+## TypeScript
+
+- **TypeScript (TS)** — JavaScript plus static types. Types are checked by `tsc` and then erased: at runtime it is
+  plain JS (like Python type hints checked by mypy — they don't exist when the code runs).
+- **tsc** — the TypeScript compiler / type checker. We only use it to check (`npm run typecheck`); Vite builds.
+- **strict mode** — the strictest type-checking settings (e.g. `null` must be handled explicitly).
+- **noUncheckedIndexedAccess** — `array[0]` has type `T | undefined`, forcing us to handle "missing" —
+  avoids crashes on empty arrays.
+- **type vs runtime value** — `type Route = ...` exists only for the checker; a Zod schema is a real object that
+  exists at runtime and can check data.
+- **Union type** — `A | B`: a value that is one of several types (like `Union[A, B]`).
+- **Discriminated union** — a union where every member has a common field with a fixed literal value
+  (here: `type`). Checking that field tells TS exactly which member we have:
+  `if (msg.type === 'route_updated') { msg.updatedBy }` — TS knows `updatedBy` exists inside that branch.
+  Python equivalent: a `Union` of pydantic models with `Literal` `type` fields + a discriminator.
+- **Narrowing** — TS refining a type inside an `if` / `switch` branch, as in the example above.
+- **Literal type** — a type with exactly one value, e.g. `'telemetry'` (like `Literal['telemetry']`).
+
+## Validation
+
+- **Zod** — library for runtime validation of data with a schema; the TS type is derived from the schema.
+  Closest Python equivalent: **pydantic**.
+- **Schema** — description of the expected shape of data (`z.object({ speed: z.number() })`).
+- **`z.infer<typeof Schema>`** — derives the TS type from a schema, so type and validator never drift apart.
+- **parse vs safeParse** — `parse` throws on invalid data; `safeParse` returns `{ success, data | error }`.
+- **"Parse, don't validate"** — check untrusted input once at the boundary (transport) and convert it into
+  trusted typed data; inner code never re-checks.
+- **Trust boundary** — the point where data enters from outside our control (server messages, user input).
+
+## React / frontend
+
+- **React** — UI library: the UI is a function of state; when state changes, React re-renders what changed.
+- **Component** — a function that returns UI (`function App(): ReactElement`).
+- **JSX / TSX** — HTML-like syntax inside JS/TS (`<h1>FleetPulse</h1>`). `.tsx` = TypeScript file with JSX.
+- **StrictMode** — dev-only React wrapper that runs some code twice to reveal bugs (e.g. missing cleanup).
+- **Vite** — dev server + bundler. Serves the app at `localhost:5173` with instant reload; builds for production.
+- **Dev proxy** — Vite forwards `/api` and `/ws` to the mock server on `:3000`, so the client uses relative URLs.
+- **CORS** — browser rule blocking calls to another origin unless the server allows it. The mock server sends
+  `Access-Control-Allow-Origin: *`; our proxy avoids cross-origin calls anyway.
+
+## Testing
+
+- **Vitest** — test runner (like `pytest`). `describe` groups tests, `it` is one test, `expect(x).toBe(y)` asserts.
+- **`it.each`** — runs one test per input row (like `@pytest.mark.parametrize`).
+- **Fixture** — saved real data used by tests (our `fixtures/` folder, captured from the server in Phase 0).
+- **`import.meta.glob`** — Vite feature that loads many files by pattern at once (used to load all fixtures).
+
+## Networking / protocols
+
+- **REST** — request/response HTTP API (`GET /api/fleet`, `PATCH /api/routes/:id`).
+- **SSE (Server-Sent Events)** — one-way stream server → client over a long HTTP response; each message is a
+  `data: ...` line followed by a blank line. Used for telemetry.
+- **WebSocket (WS)** — two-way persistent connection. Used for presence and route events.
+- **Heartbeat / ping-pong** — periodic small messages to prove the connection is still alive.
+- **Optimistic locking** — every route has `_version`; we send it as `If-Match`; the server rejects with 409 if
+  someone changed it in between (same as version-column locking in a DB).
+- **409 Conflict** — HTTP status for "your write conflicts with the current state".
+- **503 + Retry-After** — "server busy, try again in N seconds".
+- **concurrently** — npm tool that runs several commands in one terminal (server + Vite) with prefixed output.

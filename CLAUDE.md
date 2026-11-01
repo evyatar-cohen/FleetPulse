@@ -124,4 +124,7 @@ Stack (propose confirming at Phase 1): React + TypeScript + Vite + Vitest, Leafl
 - At the end of each phase, **propose** a PROMPTS.md entry: what I asked, what you produced, what I changed,
   rejected or questioned and why. Keep it factual — don't invent iterations or critiques that didn't happen.
   I'll add my own notes.
+- Each phase, add every new key term to **GLOSSARY.md** (plain English, Python comparison where it helps).
+- After each end-of-phase quick check, add the questions to **INTERVIEW_PREP.md** with a model answer
+  (short one-liner + detail), and note where my answer was wrong or incomplete.
 - Suggest a commit with a clear message at natural checkpoints; don't commit without asking.

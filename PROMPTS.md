@@ -40,3 +40,37 @@ and never submit code I can't explain.
 
 **My notes**
 - _(add your own notes here)_
+
+---
+
+## Phase 1 — Skeleton & types
+
+**What I asked**
+- A skeleton with `src/{transport,domain,store,ui}` and `tests/`, React + Vite, `npm start` running server and
+  client together, `npm test` passing, and core types.
+- Before approving Zod I asked whether it is really best practice.
+- A GLOSSARY.md of key terms, and an INTERVIEW_PREP.md cheat sheet with every check question and its model answer.
+
+**What the AI produced**
+- A plan with 6 design choices and rejected alternatives, which I approved before any code was written.
+- An honest comparison for Zod: why runtime validation is needed, alternatives (Valibot, ArkType, hand-written
+  guards), and its costs (bundle size, policy for unknown fields and invalid messages).
+- `package.json`, `tsconfig.json` (strict), Vite config with a dev proxy, React entry, domain schemas
+  (`models.ts`, `events.ts`, `api.ts`), and 37 tests validating every Phase 0 fixture against the schemas plus
+  negative cases.
+
+**What the AI caught / changed along the way**
+- `"type": "module"` would have broken `server.js` (CommonJS) — kept it out.
+- Pinned `express@4` because of the Express 5 `req.body` difference found in Phase 0.
+- Vite warned about ESM syntax in a CommonJS-loaded config → renamed it to `vite.config.mts`.
+- Rewrote a dense test helper it had first written (nested ternary + type cast) into a plain function, to match
+  the project's readability rules.
+- Flagged a trade-off for my decision: strict enums for route status drop events with unknown values.
+
+**What I questioned / changed / rejected**
+- Asked whether Zod is best practice before accepting it.
+- End-of-phase check: Q1 (why Zod as well as TS) partly right; Q2 correct; Q3 (discriminated unions) I asked for an
+  explanation. Answers recorded in INTERVIEW_PREP.md.
+
+**My notes**
+- _(add your own notes here)_

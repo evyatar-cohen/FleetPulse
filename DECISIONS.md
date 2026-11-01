@@ -49,4 +49,49 @@ Feeds the README and interview prep.
 - **No "list online dispatchers" message** — a new tab only learns about dispatchers who join or act after it.
 - **`/api/telemetry/history` returns random data**, not real history.
 - **`npm install express` gives Express 5**; the server was likely written for Express 4
-  (in Express 5, a request without a JSON body makes `req.body` undefined → 500). Decide pinning in Phase 1.
+  (in Express 5, a request without a JSON body makes `req.body` undefined → 500). Decided in Phase 1: pin `express@4`.
+
+---
+
+## Phase 1 — Skeleton & types
+
+### D4. Zod schemas are the single source of truth for payload types
+- **Decision:** every server payload has a Zod schema; its TS type is derived with `z.infer`.
+- **Alternatives:** plain TS types + hand-written type guards; Valibot (same idea, smaller bundle).
+- **Why:** TS types are erased at runtime and can't check server data. One definition gives both the runtime
+  validator and the type, so they can't drift. Native support for discriminated unions.
+- **Trade-off:** ~10–15 KB gzipped bundle; small parse cost per message (negligible at ~13 messages / 2 s).
+
+### D5. Payload schemas live in `domain/`, not `transport/`
+- **Decision:** `src/domain/{models,events,api}.ts`. Transport *uses* them to parse incoming data.
+- **Alternatives:** keep wire schemas inside transport.
+- **Why:** they are pure (no I/O) and shared by the whole app (domain logic, store, UI all use the types).
+- **Trade-off:** domain types mirror the server's wire format; if the server format diverged from what the UI
+  needs, we'd add a mapping layer then.
+
+### D6. Strict enums for route status and priority
+- **Decision:** `status` ∈ assigned / in-progress / completed / cancelled; `priority` ∈ low / normal / high.
+- **Alternatives:** accept any string, validate only what we send.
+- **Why:** the server accepts any value; an unknown value means something we don't understand — reject rather
+  than display it wrong.
+- **Trade-off:** an event with an unknown value is dropped → that route's state goes stale. Revisit in Phase 5.
+
+### D7. No `"type": "module"` in package.json; Vite config as `vite.config.mts`
+- **Decision:** the package stays CommonJS by default; the Vite config uses `.mts` to be treated as ESM.
+- **Alternatives:** `"type": "module"` for the whole package.
+- **Why:** `server.js` uses `require` (CommonJS) and must not be modified — `"type": "module"` would break it.
+- **Trade-off:** one unusual file extension.
+
+### D8. Vite dev proxy for `/api` and `/ws`
+- **Decision:** the client uses relative URLs; Vite forwards them to `localhost:3000`.
+- **Alternatives:** hardcode `http://localhost:3000` in the client (works — the server sends CORS `*`).
+- **Why:** the server address lives in one place; no cross-origin requests.
+- **Trade-off:** works in dev only; a production build would need a real reverse proxy (out of scope).
+
+### D9. Pin `express@4`
+- **Why:** matches the server's era; avoids the Express 5 `req.body` difference found in Phase 0.
+
+### D10. Typecheck is a separate script
+- **Decision:** `npm run typecheck` (`tsc --noEmit`); `npm test` runs Vitest only.
+- **Why:** Vitest strips types without checking them; `tsc` is the real type checker.
+- **Trade-off:** two commands to run before committing.
