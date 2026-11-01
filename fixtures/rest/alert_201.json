@@ -1,0 +1,13 @@
+{
+  "status": 201,
+  "retryAfter": null,
+  "body": {
+    "id": "41a33b5a-dd79-464d-a5fe-680c6a2fab24",
+    "truckId": "truck_2",
+    "message": "Low fuel, return to depot",
+    "severity": "warning",
+    "sentBy": "dispatcher_41d71449",
+    "timestamp": 1793530951935,
+    "acknowledged": false
+  }
+}

@@ -1,0 +1,189 @@
+{
+  "status": 200,
+  "retryAfter": null,
+  "body": {
+    "fleet": [
+      {
+        "id": "truck_1",
+        "name": "Truck Alpha",
+        "status": "active",
+        "location": {
+          "lat": 32.109109147399174,
+          "lng": 34.78179874999334
+        },
+        "speed": 4.590072761969223,
+        "heading": 354.925113441403,
+        "fuel": 44.893445880560186,
+        "engineTemp": 76.88832955774953,
+        "currentRouteId": null,
+        "_version": 2
+      },
+      {
+        "id": "truck_2",
+        "name": "Truck Bravo",
+        "status": "active",
+        "location": {
+          "lat": 32.11498339710678,
+          "lng": 34.79893771731006
+        },
+        "speed": 0,
+        "heading": 323.9475809936405,
+        "fuel": 50.317590810244994,
+        "engineTemp": 77.42184746081716,
+        "currentRouteId": null,
+        "_version": 2
+      },
+      {
+        "id": "truck_3",
+        "name": "Truck Charlie",
+        "status": "active",
+        "location": {
+          "lat": 32.10286261757141,
+          "lng": 34.8122193459476
+        },
+        "speed": 0,
+        "heading": 256.8638112679098,
+        "fuel": 94.75254803449225,
+        "engineTemp": 72.7408777163915,
+        "currentRouteId": null,
+        "_version": 2
+      },
+      {
+        "id": "truck_4",
+        "name": "Truck Delta",
+        "status": "idle",
+        "location": {
+          "lat": 32.0853,
+          "lng": 34.82616444927913
+        },
+        "speed": 0,
+        "heading": 206.35202697366807,
+        "fuel": 51.23104364572241,
+        "engineTemp": 89.33525578721594,
+        "currentRouteId": null,
+        "_version": 1
+      },
+      {
+        "id": "truck_5",
+        "name": "Truck Echo",
+        "status": "active",
+        "location": {
+          "lat": 32.06118373263788,
+          "lng": 34.82357060628257
+        },
+        "speed": 1.2275772004129943,
+        "heading": 318.0845719057895,
+        "fuel": 84.61814057567497,
+        "engineTemp": 75.60990979691161,
+        "currentRouteId": null,
+        "_version": 2
+      },
+      {
+        "id": "truck_6",
+        "name": "Truck Foxtrot",
+        "status": "active",
+        "location": {
+          "lat": 32.06642420348769,
+          "lng": 34.792697785755294
+        },
+        "speed": 0.5529159655765264,
+        "heading": 140.14651120691445,
+        "fuel": 66.22472167516459,
+        "engineTemp": 73.2409614303601,
+        "currentRouteId": null,
+        "_version": 2
+      },
+      {
+        "id": "truck_7",
+        "name": "Truck Golf",
+        "status": "maintenance",
+        "location": {
+          "lat": 32.05057602475948,
+          "lng": 34.7818
+        },
+        "speed": 0,
+        "heading": 21.639882464793196,
+        "fuel": 45.27420435384134,
+        "engineTemp": 86.71203698999155,
+        "currentRouteId": null,
+        "_version": 1
+      },
+      {
+        "id": "truck_8",
+        "name": "Truck Hotel",
+        "status": "active",
+        "location": {
+          "lat": 32.06599269704586,
+          "lng": 34.77065354758854
+        },
+        "speed": 1.6140490144369517,
+        "heading": 55.25722800456265,
+        "fuel": 55.53425291973039,
+        "engineTemp": 76.18017006012714,
+        "currentRouteId": null,
+        "_version": 2
+      },
+      {
+        "id": "truck_9",
+        "name": "Truck India",
+        "status": "active",
+        "location": {
+          "lat": 32.06643100429234,
+          "lng": 34.74910918999922
+        },
+        "speed": 5.660199569340549,
+        "heading": 26.00094082312046,
+        "fuel": 59.69083917313272,
+        "engineTemp": 78.10729304005994,
+        "currentRouteId": null,
+        "_version": 2
+      },
+      {
+        "id": "truck_10",
+        "name": "Truck Juliet",
+        "status": "idle",
+        "location": {
+          "lat": 32.0853,
+          "lng": 34.745184720964
+        },
+        "speed": 0,
+        "heading": 86.64037235471119,
+        "fuel": 45.88973126289831,
+        "engineTemp": 81.18183743712481,
+        "currentRouteId": null,
+        "_version": 1
+      },
+      {
+        "id": "truck_11",
+        "name": "Truck Kilo",
+        "status": "active",
+        "location": {
+          "lat": 32.10223351757806,
+          "lng": 34.75245619363731
+        },
+        "speed": 6.917025422461376,
+        "heading": 177.7837001090187,
+        "fuel": 73.69496854567085,
+        "engineTemp": 78.67583644892794,
+        "currentRouteId": null,
+        "_version": 2
+      },
+      {
+        "id": "truck_12",
+        "name": "Truck Lima",
+        "status": "active",
+        "location": {
+          "lat": 32.117335966479764,
+          "lng": 34.76329991527675
+        },
+        "speed": 2.858289283424407,
+        "heading": 254.86755055527192,
+        "fuel": 78.513071301838,
+        "engineTemp": 77.84640712866067,
+        "currentRouteId": null,
+        "_version": 2
+      }
+    ],
+    "timestamp": 1793530950514
+  }
+}

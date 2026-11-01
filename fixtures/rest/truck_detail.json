@@ -1,0 +1,21 @@
+{
+  "status": 200,
+  "retryAfter": null,
+  "body": {
+    "id": "truck_1",
+    "name": "Truck Alpha",
+    "status": "active",
+    "location": {
+      "lat": 32.109109147399174,
+      "lng": 34.78179874999334
+    },
+    "speed": 4.590072761969223,
+    "heading": 354.925113441403,
+    "fuel": 44.893445880560186,
+    "engineTemp": 76.88832955774953,
+    "mileage": 26733,
+    "lastUpdate": 1793530950505,
+    "currentRouteId": null,
+    "_version": 2
+  }
+}

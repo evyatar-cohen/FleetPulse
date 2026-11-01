@@ -1,0 +1,9 @@
+{
+  "status": 409,
+  "retryAfter": null,
+  "body": {
+    "error": "Truck already assigned",
+    "currentRouteId": "route_1",
+    "assignedBy": "dispatcher_41d71449"
+  }
+}

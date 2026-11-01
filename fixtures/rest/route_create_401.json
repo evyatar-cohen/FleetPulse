@@ -1,0 +1,7 @@
+{
+  "status": 401,
+  "retryAfter": null,
+  "body": {
+    "error": "X-Dispatcher-Id header required"
+  }
+}

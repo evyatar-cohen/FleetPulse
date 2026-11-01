@@ -1,0 +1,18 @@
+{
+  "type": "route_assigned",
+  "route": {
+    "id": "route_1",
+    "truckId": "truck_1",
+    "destination": "Port of Tel Aviv",
+    "priority": "high",
+    "notes": "fixture",
+    "status": "assigned",
+    "assignedBy": "dispatcher_41d71449",
+    "assignedAt": 1793530950536,
+    "_version": 1
+  },
+  "truckId": "truck_1",
+  "assignedBy": "dispatcher_41d71449",
+  "truckVersion": 3,
+  "timestamp": 1793530950536
+}

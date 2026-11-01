@@ -1,0 +1,164 @@
+[
+  {
+    "receivedAt": 1793530968513,
+    "type": "telemetry",
+    "eventTimestamp": 1793530968512,
+    "reading": {
+      "truckId": "truck_11",
+      "location": {
+        "lat": 32.10193805933749,
+        "lng": 34.75254103061018
+      },
+      "speed": 39.82043127627311,
+      "heading": 146.26528212116727,
+      "fuel": 73.57348565692503,
+      "engineTemp": 84.861986944062,
+      "status": "active",
+      "timestamp": 1793530968512
+    }
+  },
+  {
+    "receivedAt": 1793530970513,
+    "type": "telemetry",
+    "eventTimestamp": 1793530970512,
+    "reading": {
+      "truckId": "truck_11",
+      "location": {
+        "lat": 32.10188919790676,
+        "lng": 34.75255974419239
+      },
+      "speed": 41.857950816503376,
+      "heading": 154.47851824519682,
+      "fuel": 73.55825341307296,
+      "engineTemp": 88.19121859408104,
+      "status": "active",
+      "timestamp": 1793530970512
+    }
+  },
+  {
+    "receivedAt": 1793530972515,
+    "type": "telemetry",
+    "eventTimestamp": 1793530972513,
+    "reading": {
+      "truckId": "truck_11",
+      "location": {
+        "lat": 32.10184880858642,
+        "lng": 34.75259290630208
+      },
+      "speed": 41.807350293817144,
+      "heading": 164.88602172516937,
+      "fuel": 0,
+      "engineTemp": 89.43169524725548,
+      "status": "active",
+      "timestamp": 1793530972513
+    }
+  },
+  {
+    "receivedAt": 1793530974515,
+    "type": "telemetry",
+    "eventTimestamp": 1793530974514,
+    "reading": {
+      "truckId": "truck_11",
+      "location": {
+        "lat": 32.10179789900867,
+        "lng": 34.7526157228007
+      },
+      "speed": 44.63095044700054,
+      "heading": 158.06355448076397,
+      "fuel": 0,
+      "engineTemp": 89.18250641094582,
+      "status": "active",
+      "timestamp": 1793530974514
+    }
+  },
+  {
+    "receivedAt": 1793530976516,
+    "type": "telemetry",
+    "eventTimestamp": 1793530976515,
+    "reading": {
+      "truckId": "truck_11",
+      "location": {
+        "lat": 32.10174019949017,
+        "lng": 34.75262288078918
+      },
+      "speed": 46.51345600710489,
+      "heading": 143.88989103974382,
+      "fuel": 73.51163444347947,
+      "engineTemp": 87.74557004926754,
+      "status": "active",
+      "timestamp": 1793530976515
+    }
+  },
+  {
+    "receivedAt": 1793530978517,
+    "type": "telemetry",
+    "eventTimestamp": 1793530978516,
+    "reading": {
+      "truckId": "truck_11",
+      "location": {
+        "lat": 32.101685425799644,
+        "lng": 34.75266085268864
+      },
+      "speed": 53.31879862454835,
+      "heading": 158.61221174810169,
+      "fuel": 73.49496959365139,
+      "engineTemp": 89.55879642493811,
+      "status": "active",
+      "timestamp": 1793530978516
+    }
+  },
+  {
+    "receivedAt": 1793530980519,
+    "type": "telemetry",
+    "eventTimestamp": 1793530980517,
+    "reading": {
+      "truckId": "truck_11",
+      "location": {
+        "lat": 32.10162237999407,
+        "lng": 34.75267306837568
+      },
+      "speed": 51.37468083254843,
+      "heading": 172.02939650230633,
+      "fuel": 73.47854775854732,
+      "engineTemp": 88.41241565864378,
+      "status": "active",
+      "timestamp": 1793530980517
+    }
+  },
+  {
+    "receivedAt": 1793530982519,
+    "type": "telemetry",
+    "eventTimestamp": 1793530982518,
+    "reading": {
+      "truckId": "truck_11",
+      "location": {
+        "lat": 32.10154974694433,
+        "lng": 34.75267066123259
+      },
+      "speed": 58.13834123500688,
+      "heading": 181.89067464308073,
+      "fuel": 73.46128046589294,
+      "engineTemp": 91.86846469279145,
+      "status": "active",
+      "timestamp": 1793530982518
+    }
+  },
+  {
+    "receivedAt": 1793530984520,
+    "type": "telemetry",
+    "eventTimestamp": 1793530984519,
+    "reading": {
+      "truckId": "truck_11",
+      "location": {
+        "lat": 32.10148018599515,
+        "lng": 34.75267040016375
+      },
+      "speed": 55.649151268859534,
+      "heading": 196.8751837937425,
+      "fuel": 73.44432432198433,
+      "engineTemp": 91.9435324821131,
+      "status": "active",
+      "timestamp": 1793530984519
+    }
+  }
+]
