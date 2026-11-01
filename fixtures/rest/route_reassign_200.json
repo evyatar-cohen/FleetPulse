@@ -1,0 +1,17 @@
+{
+  "status": 200,
+  "retryAfter": null,
+  "body": {
+    "id": "route_1",
+    "truckId": "truck_4",
+    "destination": "Port of Tel Aviv",
+    "priority": "high",
+    "notes": "fixture",
+    "status": "assigned",
+    "assignedBy": "dispatcher_41d71449",
+    "assignedAt": 1793530950536,
+    "_version": 2,
+    "reassignedBy": "dispatcher_34032ebe",
+    "reassignedAt": 1793530950593
+  }
+}

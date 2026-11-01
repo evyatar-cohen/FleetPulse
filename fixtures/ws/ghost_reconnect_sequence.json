@@ -1,0 +1,27 @@
+{
+  "note": "Carol closed, reconnected with the same id, then the delayed dispatcher_left arrived while she was connected.",
+  "closedAt": 1793530952924,
+  "reconnectedAt": 1793530953953,
+  "observed": [
+    {
+      "receivedAt": 1793530953954,
+      "msg": {
+        "type": "dispatcher_joined",
+        "dispatcherId": "dispatcher_fixture_carol",
+        "name": "Carol",
+        "timestamp": 1793530953953,
+        "activeDispatchers": 3
+      }
+    },
+    {
+      "receivedAt": 1793530962929,
+      "msg": {
+        "type": "dispatcher_left",
+        "dispatcherId": "dispatcher_fixture_carol",
+        "timestamp": 1793530962926,
+        "activeDispatchers": 2
+      }
+    }
+  ],
+  "lateLeaveDelayMs": 10005
+}

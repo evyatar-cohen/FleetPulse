@@ -1,0 +1,198 @@
+{
+  "type": "gps_batch",
+  "truckId": "truck_4",
+  "readings": [
+    {
+      "truckId": "truck_4",
+      "location": {
+        "lat": 32.08473804241927,
+        "lng": 34.8255527552202
+      },
+      "speed": 14.005288622021625,
+      "heading": 234.736271099629,
+      "fuel": 51.15298743972603,
+      "engineTemp": 79.80671290957899,
+      "status": "active",
+      "timestamp": 1793530940510,
+      "_batch": true,
+      "_batchIndex": 0,
+      "_batchTotal": 12
+    },
+    {
+      "truckId": "truck_4",
+      "location": {
+        "lat": 32.08432863335373,
+        "lng": 34.825329412176984
+      },
+      "speed": 18.940309439947256,
+      "heading": 234.736271099629,
+      "fuel": 51.15298743972603,
+      "engineTemp": 79.80671290957899,
+      "status": "active",
+      "timestamp": 1793530942510,
+      "_batch": true,
+      "_batchIndex": 1,
+      "_batchTotal": 12
+    },
+    {
+      "truckId": "truck_4",
+      "location": {
+        "lat": 32.08458068314965,
+        "lng": 34.82537648993711
+      },
+      "speed": 14.427952374240249,
+      "heading": 234.736271099629,
+      "fuel": 51.15298743972603,
+      "engineTemp": 79.80671290957899,
+      "status": "active",
+      "timestamp": 1793530944510,
+      "_batch": true,
+      "_batchIndex": 2,
+      "_batchTotal": 12
+    },
+    {
+      "truckId": "truck_4",
+      "location": {
+        "lat": 32.08498645278692,
+        "lng": 34.825900444179
+      },
+      "speed": 9.942160146610867,
+      "heading": 234.736271099629,
+      "fuel": 51.15298743972603,
+      "engineTemp": 79.80671290957899,
+      "status": "active",
+      "timestamp": 1793530946510,
+      "_batch": true,
+      "_batchIndex": 3,
+      "_batchTotal": 12
+    },
+    {
+      "truckId": "truck_4",
+      "location": {
+        "lat": 32.085450948914065,
+        "lng": 34.82624782928224
+      },
+      "speed": 19.310246895360592,
+      "heading": 234.736271099629,
+      "fuel": 51.15298743972603,
+      "engineTemp": 79.80671290957899,
+      "status": "active",
+      "timestamp": 1793530948510,
+      "_batch": true,
+      "_batchIndex": 4,
+      "_batchTotal": 12
+    },
+    {
+      "truckId": "truck_4",
+      "location": {
+        "lat": 32.08488798333097,
+        "lng": 34.82544460245563
+      },
+      "speed": 10.791288154735298,
+      "heading": 234.736271099629,
+      "fuel": 51.15298743972603,
+      "engineTemp": 79.80671290957899,
+      "status": "active",
+      "timestamp": 1793530950510,
+      "_batch": true,
+      "_batchIndex": 5,
+      "_batchTotal": 12
+    },
+    {
+      "truckId": "truck_4",
+      "location": {
+        "lat": 32.08498058443525,
+        "lng": 34.82580309424178
+      },
+      "speed": 11.087189064967092,
+      "heading": 234.736271099629,
+      "fuel": 51.15298743972603,
+      "engineTemp": 79.80671290957899,
+      "status": "active",
+      "timestamp": 1793530952510,
+      "_batch": true,
+      "_batchIndex": 6,
+      "_batchTotal": 12
+    },
+    {
+      "truckId": "truck_4",
+      "location": {
+        "lat": 32.08507701898019,
+        "lng": 34.82635864428146
+      },
+      "speed": 14.462017933668921,
+      "heading": 234.736271099629,
+      "fuel": 51.15298743972603,
+      "engineTemp": 79.80671290957899,
+      "status": "active",
+      "timestamp": 1793530954510,
+      "_batch": true,
+      "_batchIndex": 7,
+      "_batchTotal": 12
+    },
+    {
+      "truckId": "truck_4",
+      "location": {
+        "lat": 32.08618722939826,
+        "lng": 34.82644636880507
+      },
+      "speed": 14.97624278777297,
+      "heading": 234.736271099629,
+      "fuel": 51.15298743972603,
+      "engineTemp": 79.80671290957899,
+      "status": "active",
+      "timestamp": 1793530956510,
+      "_batch": true,
+      "_batchIndex": 8,
+      "_batchTotal": 12
+    },
+    {
+      "truckId": "truck_4",
+      "location": {
+        "lat": 32.084284579280386,
+        "lng": 34.825674981384005
+      },
+      "speed": 16.900199638526107,
+      "heading": 234.736271099629,
+      "fuel": 51.15298743972603,
+      "engineTemp": 79.80671290957899,
+      "status": "active",
+      "timestamp": 1793530958510,
+      "_batch": true,
+      "_batchIndex": 9,
+      "_batchTotal": 12
+    },
+    {
+      "truckId": "truck_4",
+      "location": {
+        "lat": 32.085541273318114,
+        "lng": 34.82609763687111
+      },
+      "speed": 13.339405892109276,
+      "heading": 234.736271099629,
+      "fuel": 51.15298743972603,
+      "engineTemp": 79.80671290957899,
+      "status": "active",
+      "timestamp": 1793530960510,
+      "_batch": true,
+      "_batchIndex": 10,
+      "_batchTotal": 12
+    },
+    {
+      "truckId": "truck_4",
+      "location": {
+        "lat": 32.08459121510747,
+        "lng": 34.826192602225376
+      },
+      "speed": 10.76814400942387,
+      "heading": 234.736271099629,
+      "fuel": 51.15298743972603,
+      "engineTemp": 79.80671290957899,
+      "status": "active",
+      "timestamp": 1793530962510,
+      "_batch": true,
+      "_batchIndex": 11,
+      "_batchTotal": 12
+    }
+  ]
+}

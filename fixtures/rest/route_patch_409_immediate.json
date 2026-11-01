@@ -1,0 +1,10 @@
+{
+  "status": 409,
+  "retryAfter": null,
+  "body": {
+    "error": "Route was modified by another dispatcher",
+    "currentVersion": 1,
+    "yourVersion": 99,
+    "lastModifiedBy": "dispatcher_41d71449"
+  }
+}

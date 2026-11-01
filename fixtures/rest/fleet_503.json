@@ -1,0 +1,7 @@
+{
+  "status": 503,
+  "retryAfter": "3",
+  "body": {
+    "error": "Service under heavy load"
+  }
+}
