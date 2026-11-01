@@ -30,9 +30,7 @@ export function addToPath(path: readonly PathPoint[], point: PathPoint): readonl
     return path;
   }
 
-  const inserted = [...path.slice(0, insertAt), point, ...path.slice(insertAt)];
-  if (inserted.length > MAX_PATH_POINTS) {
-    return inserted.slice(inserted.length - MAX_PATH_POINTS);
-  }
-  return inserted;
+  // When full, skip the oldest point while copying — one copy per insert.
+  const firstKept = isFull ? 1 : 0;
+  return [...path.slice(firstKept, insertAt), point, ...path.slice(insertAt)];
 }

@@ -105,6 +105,12 @@ and never submit code I can't explain.
 - **Fuel:** the AI's first rule only checked drops. I asked about an impossible *rise* (15 → 80) → the rule became
   symmetric and time-based. I asked "what did we miss?" → 4 more scenarios (out-of-range values, values that keep
   jumping, drift during the check, alerts using only trusted values). I asked for the full scenario list before tests.
+- **Code review before merge:** I asked for a review of the branch. It found 5 real bugs in the fuel detector
+  (e.g. a held glitch accepted as real after 4 s, low-fuel 8 → 0 not caught) and 3 cleanups. The AI verified each
+  by hand, wrote failing tests first (5 failed on the old code), then fixed them: measure the rate from the previous
+  reading, cap the gap, lower the rate to 1.5 pts/s, keep the episode start across statuses.
+- I asked why the window is 6 s and where the "4 s" came from → server.js QUIRK 2 (2–4 s) + one reading interval;
+  in the real world it would be tuned from logged glitch durations.
 
 **My notes**
 - _(add your own notes here)_

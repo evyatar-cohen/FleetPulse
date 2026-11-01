@@ -108,7 +108,10 @@ into the path in timestamp order.
 glitch; if it stays off for 6 s → we accept and show the new value as real.
 
 **Detail:**
-- The rule is generic: fuel can't change faster than 5 points/second, up or down (from the vehicle profile).
+- The rule is generic: fuel can't change faster than 1.5 points/second, up or down (from the vehicle profile),
+  measured from the previous reading — so the allowance doesn't grow while a glitch lasts.
+- Why 6 s: the longest known glitch (4 s, server.js QUIRK 2) + one reading interval (2 s) to see it end.
+  Real world: tune it from logged glitch durations.
 - While `unverified`, no low-fuel alert can fire — alerts use only the trusted value.
 - The 6 s window is the safety bound: a real problem is never hidden for longer.
 - Each episode ends with `resolved: 'glitch' | 'confirmed'`, which the anomaly dashboard can log.

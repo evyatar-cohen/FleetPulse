@@ -1,13 +1,19 @@
 // Fuel detector — QUIRK #2: the sensor reads 0% for a few seconds (hard braking), then recovers.
-// Generic rule: fuel can't change faster than profile.maxFuelChangePerSecond in either direction. A faster jump
-// is 'unverified' — we keep showing the last trusted value. Then:
+// Generic rule: fuel can't change faster than profile.maxFuelChangePerSecond in either direction, measured from
+// the PREVIOUS reading. A faster jump is 'unverified' — we keep showing the last trusted value. Then:
 //   back near the trusted value → it was a glitch ('glitch')
 //   still off after FUEL_CONFIRM_WINDOW_MS → accept it as real ('confirmed') — a real problem is never hidden
 // Values outside 0..100 are impossible → 'sensor_fault' right away.
 import type { TelemetryReading } from '../../models';
 import type { VehicleProfile } from '../../vehicles';
-import { FUEL_CONFIRM_WINDOW_MS } from '../config';
-import type { SensorDetector, SensorResolution, SensorState, SensorStatus } from '../sensors';
+import { FUEL_CONFIRM_WINDOW_MS, FUEL_MAX_RATE_GAP_MS } from '../config';
+import {
+  keepTrusted,
+  type SensorDetector,
+  type SensorResolution,
+  type SensorState,
+  type SensorStatus,
+} from '../sensors';
 
 const MIN_FUEL = 0;
 const MAX_FUEL = 100;
@@ -16,15 +22,21 @@ function isInRange(fuel: number): boolean {
   return fuel >= MIN_FUEL && fuel <= MAX_FUEL;
 }
 
-// Allowed change grows with the time since the trusted value — so after a long stream pause a big change is fine.
-function isPlausibleChange(trustedValue: number, trustedAt: number, reading: TelemetryReading, profile: VehicleProfile): boolean {
-  const elapsedSeconds = (reading.timestamp - trustedAt) / 1000;
-  const allowedChange = profile.maxFuelChangePerSecond * elapsedSeconds;
+// The allowance is measured from the previous reading (not from the trusted one), so it does NOT grow while a
+// glitch lasts. The gap is capped: after a long pause we can't judge a big change, so it waits for the window.
+function isPlausibleChange(
+  trustedValue: number,
+  previousReadingAt: number,
+  reading: TelemetryReading,
+  profile: VehicleProfile,
+): boolean {
+  const gapMs = Math.min(reading.timestamp - previousReadingAt, FUEL_MAX_RATE_GAP_MS);
+  const allowedChange = profile.maxFuelChangePerSecond * (gapMs / 1000);
   return Math.abs(reading.fuel - trustedValue) <= allowedChange;
 }
 
 function hasWindowPassed(previous: SensorState | undefined, now: number): boolean {
-  if (previous === undefined || previous.status !== 'unverified' || previous.since === undefined) {
+  if (previous === undefined || previous.status === 'ok' || previous.since === undefined) {
     return false;
   }
   return now - previous.since >= FUEL_CONFIRM_WINDOW_MS;
@@ -39,23 +51,13 @@ function accept(reading: TelemetryReading, resolved: SensorResolution | undefine
   return state;
 }
 
-// Keep showing the last trusted value, with a non-ok status. The episode start (`since`) is kept while the
-// status stays the same.
-function keepTrusted(previous: SensorState | undefined, status: SensorStatus, now: number): SensorState {
-  const continuesEpisode = previous !== undefined && previous.status === status && previous.since !== undefined;
-  const state: SensorState = {
-    value: previous === undefined ? null : previous.value,
-    status,
-    since: continuesEpisode ? previous.since : now,
-  };
-  if (previous !== undefined && previous.valueAt !== undefined) {
-    state.valueAt = previous.valueAt;
-  }
-  return state;
+// Not trusted: keep the trusted value, but remember when we saw this reading (the next rate check starts here).
+function reject(previous: SensorState | undefined, status: SensorStatus, reading: TelemetryReading): SensorState {
+  return { ...keepTrusted(previous, status, reading.timestamp), lastReadingAt: reading.timestamp };
 }
 
 function resolutionAfter(previous: SensorState | undefined): SensorResolution | undefined {
-  return previous !== undefined && previous.status === 'unverified' ? 'glitch' : undefined;
+  return previous !== undefined && previous.status !== 'ok' ? 'glitch' : undefined;
 }
 
 // No trusted value yet (first reading, or only bad readings so far): nothing to compare against.
@@ -67,24 +69,25 @@ function evaluateWithoutTrustedValue(previous: SensorState | undefined, reading:
   if (hasWindowPassed(previous, reading.timestamp)) {
     return accept(reading, 'confirmed');
   }
-  return keepTrusted(previous, 'unverified', reading.timestamp);
+  return reject(previous, 'unverified', reading);
 }
 
 export const fuelDetector: SensorDetector = {
   id: 'fuel',
   evaluate(previous: SensorState | undefined, reading: TelemetryReading, profile: VehicleProfile): SensorState {
     if (!isInRange(reading.fuel)) {
-      return keepTrusted(previous, 'sensor_fault', reading.timestamp);
+      return reject(previous, 'sensor_fault', reading);
     }
     if (previous === undefined || previous.value === null || previous.valueAt === undefined) {
       return evaluateWithoutTrustedValue(previous, reading);
     }
-    if (isPlausibleChange(previous.value, previous.valueAt, reading, profile)) {
+    const previousReadingAt = previous.lastReadingAt ?? previous.valueAt;
+    if (isPlausibleChange(previous.value, previousReadingAt, reading, profile)) {
       return accept(reading, resolutionAfter(previous));
     }
     if (hasWindowPassed(previous, reading.timestamp)) {
       return accept(reading, 'confirmed');
     }
-    return keepTrusted(previous, 'unverified', reading.timestamp);
+    return reject(previous, 'unverified', reading);
   },
 };

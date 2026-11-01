@@ -144,12 +144,17 @@ Feeds the README and interview prep.
   Rejected "repeated identical value" — idle trucks really do report 0 repeatedly.
 
 ### D16. Fuel: symmetric rate-of-change rule + confirmation window
-- **Decision:** a change faster than `maxFuelChangePerSecond` (5 pts/s), up or down, is `unverified` → show the
-  last trusted value. Back near it → `glitch`; still off after 6 s → accepted as real (`confirmed`).
-  Outside 0..100 → `sensor_fault`. Allowed change grows with the time gap (a long stream pause allows big changes).
-- **Alternatives:** `fuel === 0` check; drop-only check.
+- **Decision:** a change faster than `maxFuelChangePerSecond` (1.5 pts/s), up or down, measured from the
+  **previous reading** (gap capped at 4 s), is `unverified` → show the last trusted value. Back near it → `glitch`;
+  still off 6 s after the jump started → accepted as real (`confirmed`). Outside 0..100 → `sensor_fault`. The episode
+  start is kept across `unverified` ↔ `sensor_fault`.
+- **Alternatives:** `fuel === 0` check; drop-only check; allowance measured from the last trusted reading.
 - **Why:** generic (not tied to this server's 0), catches impossible rises too (the 15% → 80% story in the brief),
-  and never hides a real change for more than 6 s.
-- **Trade-off / limitation:** a real sudden change is shown up to 6 s late. If the stream stops while unverified,
-  the value stays "checking" — the connection-status indicator (Phase 3) covers it. The low-fuel alert must use
-  only the trusted value (later phase).
+  never hides a real change for more than 6 s. Measuring from the previous reading keeps the allowance from
+  growing during a glitch; the gap cap means a big change after a pause/reconnect waits for the window.
+- **Review fixes (code review before merge):** the first version measured from the last trusted reading with
+  5 pts/s, so a held glitch was accepted early (15 → 0 accepted at 4 s), low-fuel drops (8 → 0) passed, any glitch
+  after a long gap passed, and an out-of-range reading reset the window. All covered by new tests.
+- **Trade-off / limitation:** a real sudden change is shown up to 6 s late. Below ~3% a drop to 0 fits the
+  allowance and isn't caught. If the stream stops while unverified, the value stays "checking" — the
+  connection-status indicator (Phase 3) covers it. The low-fuel alert must use only the trusted value (later phase).

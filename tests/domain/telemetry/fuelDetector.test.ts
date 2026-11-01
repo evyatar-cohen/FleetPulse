@@ -1,8 +1,9 @@
 // Feature: Fuel sensor glitch (QUIRK #2)
 // Tests:   src/domain/telemetry/detectors/fuel.ts → fuelDetector.evaluate()
-// Rule:    fuel can't change faster than profile.maxFuelChangePerSecond (either direction). A sudden jump is
-//          'unverified': show the last trusted value. If the value returns near it → glitch. If the jump holds
-//          for FUEL_CONFIRM_WINDOW_MS → accept as real. Out of 0..100 → sensor_fault. Never hide a real change.
+// Rule:    fuel can't change faster than profile.maxFuelChangePerSecond (either direction), measured from the
+//          previous reading (gap capped). A sudden jump is 'unverified': show the last trusted value. If the value
+//          returns near it → glitch. If the jump holds for FUEL_CONFIRM_WINDOW_MS → accept as real.
+//          Out of 0..100 → sensor_fault. Never hide a real change.
 import { describe, expect, it } from 'vitest';
 import { TelemetryReadingSchema, type TelemetryReading } from '../../../src/domain/models';
 import { FUEL_CONFIRM_WINDOW_MS } from '../../../src/domain/telemetry/config';
@@ -97,18 +98,44 @@ describe('Fuel sensor — sudden jumps', () => {
     expect(lastOf(states)).toMatchObject({ value: 10, status: 'ok', resolved: 'confirmed' });
   });
 
-  it('10. "near the trusted value" allows the normal change rate for the time passed', () => {
-    // 4 s after the trusted 73.6, a value 15 points lower is within 5 pts/s × 4 s = 20 → back to ok.
-    const state = lastOf(evaluateSeries([73.6, 0, 58.6]));
-    expect(state).toMatchObject({ value: 58.6, status: 'ok', resolved: 'glitch' });
+  it('10. "near the trusted value" allows normal drift', () => {
+    const state = lastOf(evaluateSeries([73.6, 0, 73.0]));
+    expect(state).toMatchObject({ value: 73.0, status: 'ok', resolved: 'glitch' });
+  });
+
+  it('10b. review fix: the allowance does NOT grow while unverified — a held glitch is not accepted early', () => {
+    // Old bug: at tick 2 the allowance (rate × 4 s) covered 15 → 0 and the glitch value was accepted as ok.
+    const states = evaluateSeries([15, 0, 0, 0]);
+    expect(states.slice(1).every((state) => state.status === 'unverified' && state.value === 15)).toBe(true);
+  });
+
+  it('10c. review fix: a low-fuel truck dropping to 0 is still caught (8 → 0)', () => {
+    expect(lastOf(evaluateSeries([8, 0]))).toMatchObject({ value: 8, status: 'unverified' });
+  });
+
+  it('10d. review fix: an out-of-range reading mid-episode keeps the episode start (window not reset)', () => {
+    // Episode starts at tick 1. Tick 2 is out of range. Tick 4 is 6 s after tick 1 → confirmed.
+    const states = evaluateSeries([73.6, 0, 150, 0, 0]);
+    expect(states[2]).toMatchObject({ status: 'sensor_fault', since: START + TICK_MS });
+    expect(lastOf(states)).toMatchObject({ value: 0, status: 'ok', resolved: 'confirmed' });
   });
 });
 
 describe('Fuel sensor — time gaps', () => {
-  it('11. after a long pause, a big change is plausible and accepted', () => {
+  it('11. after a long pause, a big change is not trusted blindly: unverified, then confirmed after the window', () => {
     const trusted = fuelDetector.evaluate(undefined, makeReading(20, START), TRUCK);
-    const afterPause = fuelDetector.evaluate(trusted, makeReading(90, START + 10 * 60_000), TRUCK);
-    expect(afterPause).toMatchObject({ value: 90, status: 'ok' });
+    const resumeAt = START + 10 * 60_000;
+    const afterPause = fuelDetector.evaluate(trusted, makeReading(90, resumeAt), TRUCK);
+    expect(afterPause).toMatchObject({ value: 20, status: 'unverified' });
+
+    const held = fuelDetector.evaluate(afterPause, makeReading(90, resumeAt + FUEL_CONFIRM_WINDOW_MS), TRUCK);
+    expect(held).toMatchObject({ value: 90, status: 'ok', resolved: 'confirmed' });
+  });
+
+  it('11b. review fix: a glitch right after a gap (e.g. reconnect) is still caught', () => {
+    const trusted = fuelDetector.evaluate(undefined, makeReading(40, START), TRUCK);
+    const glitch = fuelDetector.evaluate(trusted, makeReading(0, START + 30_000), TRUCK);
+    expect(glitch).toMatchObject({ value: 40, status: 'unverified' });
   });
 });
 

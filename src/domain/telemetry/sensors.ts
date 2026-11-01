@@ -18,8 +18,10 @@ export interface SensorState {
   // The value safe to show the dispatcher. null = unknown (no trustworthy value yet).
   value: number | null;
   status: SensorStatus;
-  // Timestamp of the reading that produced `value` (needed for rate-of-change checks).
+  // Timestamp of the reading that produced `value`.
   valueAt?: number;
+  // Timestamp of the last reading evaluated (trusted or not) — rate checks measure from here.
+  lastReadingAt?: number;
   // When the current non-ok status started (start of the episode). Absent when ok.
   since?: number;
   resolved?: SensorResolution;
@@ -31,6 +33,22 @@ export type SensorStates = Readonly<Record<string, SensorState>>;
 export interface SensorDetector {
   id: string;
   evaluate(previous: SensorState | undefined, reading: TelemetryReading, profile: VehicleProfile): SensorState;
+}
+
+// Shared by detectors: keep showing the last trusted value with a non-ok status.
+// The episode start (`since`) is kept while the sensor stays non-ok (any non-ok status), so switching between
+// 'unverified' and 'sensor_fault' doesn't restart the episode.
+export function keepTrusted(previous: SensorState | undefined, status: SensorStatus, now: number): SensorState {
+  const continuesEpisode = previous !== undefined && previous.status !== 'ok' && previous.since !== undefined;
+  const state: SensorState = {
+    value: previous === undefined ? null : previous.value,
+    status,
+    since: continuesEpisode ? previous.since : now,
+  };
+  if (previous !== undefined && previous.valueAt !== undefined) {
+    state.valueAt = previous.valueAt;
+  }
+  return state;
 }
 
 export function evaluateSensors(
