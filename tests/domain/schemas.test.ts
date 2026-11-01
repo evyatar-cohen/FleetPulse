@@ -1,5 +1,6 @@
-// Checks that our Zod schemas match what the real server sends (fixtures captured in Phase 0),
-// and that they reject malformed payloads. If the server shape and our types drift apart, this fails.
+// Feature: Payload validation (all server messages)
+// Tests:   src/domain/models.ts, events.ts, api.ts → Zod schemas
+// Rule:    every real server payload (Phase 0 fixtures) passes; malformed payloads are rejected.
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import {

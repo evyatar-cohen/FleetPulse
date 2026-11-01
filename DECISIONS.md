@@ -95,3 +95,32 @@ Feeds the README and interview prep.
 - **Decision:** `npm run typecheck` (`tsc --noEmit`); `npm test` runs Vitest only.
 - **Why:** Vitest strips types without checking them; `tsc` is the real type checker.
 - **Trade-off:** two commands to run before committing.
+
+---
+
+## Phase 2 — Telemetry pipeline
+
+### D11. Order readings by timestamp; reject readings from the future
+- **Decision:** a reading becomes the truck's current state only if its timestamp is newer than the current one
+  (equal = duplicate, older = stale). A reading later than `now + 60 s` is rejected as a clock bug, where `now` is
+  the server send time of the event that carried it (`event.timestamp`).
+- **Alternatives:** trust arrival order; compare against the browser clock; no future guard.
+- **Why:** QUIRK #5 sends older readings late. Using the server's own timestamp avoids browser-clock differences.
+  The guard stops one bad timestamp from freezing a truck forever.
+- **Trade-off / limitation:** a truck whose clock is always > 60 s ahead looks frozen (all readings rejected).
+  In a real system the backend should fix or flag device clocks.
+
+### D12. A GPS batch goes through the same function as single readings
+- **Decision:** `ingestBatch()` loops over `ingestReading()`. Late readings (stale or batch) fill the path but
+  never move the marker; accepted readings do both.
+- **Alternatives:** separate batch logic; drop old readings entirely.
+- **Why:** one code path = fewer bugs; old positions still show where the truck was.
+- **Limitation:** the server jitters batch positions randomly (±0.001°), so the path can zig-zag.
+
+### D13. The map path is a bounded tail: last 300 points per truck (~10 min)
+- **Decision:** `MAX_PATH_POINTS = 300`; when full, the oldest point is dropped.
+- **Alternatives:** thin older points to keep the whole trip at lower detail; keep everything.
+- **Why:** the live map answers "where is the truck and where is it going". Memory stays fixed
+  (~3,600 points ≈ 250 KB for 12 trucks) so the app can run for hours.
+- **Real-world note:** the full trip history belongs in a backend database; the UI would fetch it on demand.
+  Not possible here — the mock server's `/api/telemetry/history` returns random data.
