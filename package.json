@@ -1,0 +1,27 @@
+{
+  "name": "fleetpulse",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Real-time fleet management dashboard for the FleetPulse mock server",
+  "scripts": {
+    "start": "concurrently --names server,client --prefix-colors blue,green \"node server.js\" \"vite\"",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "express": "^4.22.3",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "ws": "^8.22.1",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "concurrently": "^10.0.6",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.5",
+    "vitest": "^5.0.5"
+  }
+}
