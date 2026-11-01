@@ -86,3 +86,43 @@ and it can warn when a new message type isn't handled.
   type check, not optional like mypy.
 
 *My answer: asked for an explanation.*
+
+---
+
+## Phase 2 — Telemetry pipeline
+
+### Q7. A GPS batch of 20 old readings arrives. What happens to the marker and the path?
+**One-liner:** The marker doesn't move (all readings are older than the current one); their positions are inserted
+into the path in timestamp order.
+
+**Detail:**
+- A batch goes through the same `ingestReading()` as single readings — one code path.
+- Each reading is classified: older than current → `stale` → path only; newer → `accepted` → marker + path.
+- The path stays sorted, skips duplicate timestamps, and is capped at 300 points (~10 min) so memory stays fixed.
+- Limitation: the server jitters batch positions, so the path can zig-zag.
+
+*My answer: correct.*
+
+### Q8. Fuel jumps from 73% to 0%. What does the dispatcher see now and over the next 6 s?
+**One-liner:** Right away: the last trusted value (73%) marked "checking". If it comes back near 73% → it was a
+glitch; if it stays off for 6 s → we accept and show the new value as real.
+
+**Detail:**
+- The rule is generic: fuel can't change faster than 5 points/second, up or down (from the vehicle profile).
+- While `unverified`, no low-fuel alert can fire — alerts use only the trusted value.
+- The 6 s window is the safety bound: a real problem is never hidden for longer.
+- Each episode ends with `resolved: 'glitch' | 'confirmed'`, which the anomaly dashboard can log.
+- Out of 0..100 → `sensor_fault` immediately, no window.
+
+*My answer: mostly right — but after 6 s we don't "flag abnormal behavior": we accept the value as real and show it.*
+
+### Q9. How do we add a new vehicle type, "van"?
+**One-liner:** Add one entry to `VEHICLE_PROFILES`, and have the backend send `vehicleType: 'van'` in the fleet data —
+no other code changes.
+
+**Detail:**
+- Every detector reads its limits from the profile, so nothing else needs editing.
+- Until the backend sends the type, the schema defaults it to `truck`; an unknown type falls back to the default
+  profile instead of crashing.
+
+*My answer: correct.*

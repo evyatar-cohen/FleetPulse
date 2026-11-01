@@ -124,3 +124,32 @@ Feeds the README and interview prep.
   (~3,600 points ≈ 250 KB for 12 trucks) so the app can run for hours.
 - **Real-world note:** the full trip history belongs in a backend database; the UI would fetch it on demand.
   Not possible here — the mock server's `/api/telemetry/history` returns random data.
+
+### D14. Vehicle profiles registry
+- **Decision:** every physical limit lives in `VEHICLE_PROFILES[vehicleType]` (`src/domain/vehicles.ts`).
+  Adding a vehicle type = one entry. The type comes from the server's fleet data (`vehicleType`, default `truck`);
+  an unknown type falls back to the default profile.
+- **Alternatives:** one global limit; `if (type === …)` branches in detectors.
+- **Why:** the same reading can be valid for one type and impossible for another (220 km/h: car yes, truck no).
+  Answers the grading question "add a vehicle type without touching existing code".
+- **Real-world note:** the type comes from the backend's vehicle DB inside the fleet payload, loaded once —
+  the frontend never queries a DB per reading.
+
+### D15. Sensor detector registry
+- **Decision:** each sensor check is a module with the same shape (`id`, `evaluate(previous, reading, profile)`);
+  `SENSOR_DETECTORS` lists them; the pipeline loops over the list. Detectors run only on accepted readings.
+- **Alternatives:** hardcoded checks inside the pipeline; class inheritance.
+- **Why:** adding a check = one file + one list entry, no pipeline change (proved by adding fuel after speed).
+- **Speed rule:** outside `0..profile.maxSpeedKmh` → show the last valid speed (or unknown) + `sensor_fault`.
+  Rejected "repeated identical value" — idle trucks really do report 0 repeatedly.
+
+### D16. Fuel: symmetric rate-of-change rule + confirmation window
+- **Decision:** a change faster than `maxFuelChangePerSecond` (5 pts/s), up or down, is `unverified` → show the
+  last trusted value. Back near it → `glitch`; still off after 6 s → accepted as real (`confirmed`).
+  Outside 0..100 → `sensor_fault`. Allowed change grows with the time gap (a long stream pause allows big changes).
+- **Alternatives:** `fuel === 0` check; drop-only check.
+- **Why:** generic (not tied to this server's 0), catches impossible rises too (the 15% → 80% story in the brief),
+  and never hides a real change for more than 6 s.
+- **Trade-off / limitation:** a real sudden change is shown up to 6 s late. If the stream stops while unverified,
+  the value stays "checking" — the connection-status indicator (Phase 3) covers it. The low-fuel alert must use
+  only the trusted value (later phase).

@@ -1,15 +1,26 @@
 // Per-truck telemetry state and the rules for accepting new readings.
 // Data flow: transport parses an SSE event → store calls ingestReading() / ingestBatch() → store keeps the
-// returned state. Pure functions: no I/O, no clock — "now" is passed in by the caller.
+// returned state. Pure functions: no I/O, no clock — "now" and the vehicle profile are passed in by the caller.
 import type { TelemetryReading } from '../models';
+import type { VehicleProfile } from '../vehicles';
 import { MAX_FUTURE_SKEW_MS } from './config';
 import { addToPath, type PathPoint } from './path';
+import { evaluateSensors, type SensorStates } from './sensors';
 
 export interface TruckTelemetry {
-  // The newest accepted reading — drives the map marker. Its timestamp is the reference for ordering.
+  // The newest accepted raw reading — drives the map marker. Its timestamp is the reference for ordering.
   current: TelemetryReading;
   // Every known position (current + late + batch), sorted by timestamp — drives the drawn route.
   path: readonly PathPoint[];
+  // Trusted sensor values + status per detector ('speed', …) — what the dispatcher sees instead of raw values.
+  sensors: SensorStates;
+}
+
+export interface IngestContext {
+  // Server send time of the event that carried the reading (event.timestamp).
+  now: number;
+  // Limits for this truck's vehicle type.
+  profile: VehicleProfile;
 }
 
 // Why a reading was accepted or ignored.
@@ -21,7 +32,6 @@ export interface IngestResult {
   outcome: IngestOutcome;
 }
 
-// `now` = server send time of the event that carried this reading (event.timestamp).
 export function classifyReading(
   state: TruckTelemetry | undefined,
   reading: TelemetryReading,
@@ -51,22 +61,30 @@ function toPathPoint(reading: TelemetryReading): PathPoint {
 export function ingestReading(
   state: TruckTelemetry | undefined,
   reading: TelemetryReading,
-  now: number,
+  context: IngestContext,
 ): IngestResult {
-  const outcome = classifyReading(state, reading, now);
+  const outcome = classifyReading(state, reading, context.now);
 
   if (outcome === 'accepted') {
     const previousPath = state === undefined ? [] : state.path;
-    return { state: { current: reading, path: addToPath(previousPath, toPathPoint(reading)) }, outcome };
+    const previousSensors = state === undefined ? undefined : state.sensors;
+    return {
+      state: {
+        current: reading,
+        path: addToPath(previousPath, toPathPoint(reading)),
+        sensors: evaluateSensors(previousSensors, reading, context.profile),
+      },
+      outcome,
+    };
   }
 
-  // A late reading can't move the marker, but it still tells us where the truck was.
+  // A late reading can't move the marker or change sensors, but it still tells us where the truck was.
   if (outcome === 'stale' && state !== undefined) {
     const path = addToPath(state.path, toPathPoint(reading));
     if (path === state.path) {
       return { state, outcome };
     }
-    return { state: { current: state.current, path }, outcome };
+    return { state: { ...state, path }, outcome };
   }
 
   return { state, outcome };
@@ -76,11 +94,11 @@ export function ingestReading(
 export function ingestBatch(
   state: TruckTelemetry | undefined,
   readings: readonly TelemetryReading[],
-  now: number,
+  context: IngestContext,
 ): TruckTelemetry | undefined {
   let result = state;
   for (const reading of readings) {
-    result = ingestReading(result, reading, now).state;
+    result = ingestReading(result, reading, context).state;
   }
   return result;
 }
