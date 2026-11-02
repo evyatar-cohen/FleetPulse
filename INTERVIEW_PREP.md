@@ -501,3 +501,29 @@ dispatcher screens.
 - A truck with an unknown value doesn't match a filter on that field: we show only what we can confirm.
 - Filter state is local (per tab, `useState` in App): no other part of the app needs it.
 
+---
+
+## Phase 9 — Whole-system questions
+
+### Q40. Walk me through what happens from one SSE telemetry message to the pixel on screen.
+**One-liner:** EventSource → SseClient (JSON + Zod, invalid dropped) → store action → pure `applyTelemetryEvent`
+(ordering, batch-as-history, path filter, sensor detectors) → new trucks object in the store → a 1 s throttled hook
+re-renders the map, list and charts.
+
+**Detail:**
+- The store applies every event (nothing lost); only the RENDERING is throttled, so a 30-reading batch can't freeze the UI.
+- Immutable updates: an unchanged truck keeps the same object, so components that read it don't redraw.
+- The dispatcher sees TRUSTED values (detectors), with a flag when the raw value was rejected.
+
+### Q41. What is the weakest part of your solution?
+**One-liner:** Multi-dispatcher correctness depends on things the server doesn't provide — no "who's online" list,
+no version check on reassign, no audit log, no event replay — so the client works around them and can only detect
+some races, not prevent them.
+
+**Detail:**
+- Reassign races: detected (version check before sending, ±5 s clash detection after) but not prevented.
+- Presence: clients announce themselves; names travel inside the id — a client convention.
+- Audit log: built from WS events since page load + the latest change per route from the snapshot.
+- What I'd change on the server: presence snapshot, `If-Match` on reassign, audit endpoint, SSE event ids.
+- On the client: no DOM/end-to-end tests — component logic is in tested pure helpers, UI verified by hand in two tabs.
+

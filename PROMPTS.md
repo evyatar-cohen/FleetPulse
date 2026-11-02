@@ -263,3 +263,19 @@ and never submit code I can't explain.
 
 **My notes**
 - _(add your own notes here)_
+
+---
+
+## Phase 9 — Tests check, README, final docs
+
+**How I worked with the AI this phase**
+- Before the docs, I pasted the assignment's test list and asked if we cover each item. The AI mapped every item to
+  its test file and named one gap: "real 0% vs glitch" was only covered indirectly. It added a direct test (a low
+  truck drops to 0% and stays → accepted after the window, low-fuel alert on).
+- README: the AI wrote it from DECISIONS.md and the code, then checked the quoted UI texts (conflict dialog,
+  "truck taken" message) against the real components and fixed the ones that didn't match.
+- Clean-install check (`npm install && npm start`, `npm test`) run before submission.
+
+**My notes**
+- _(add your own notes here)_
+
