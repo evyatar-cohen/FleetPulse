@@ -1,8 +1,9 @@
 // Composition root: the one place that creates the transport clients and wires them to the store.
-// Startup order: WS connect → register → `registered` (our id → REST client) → load fleet → SSE connect.
+// Startup order: WS connect → register → `registered` (our id → REST client) → load fleet + routes → SSE connect.
 // Then: fleet refresh every 30 s (retry + circuit breaker → "stale" flag), reload on `fleet_reset` and after an
 // SSE reconnect (missed data can't be replayed). stop() cleans up everything.
 import type { WsServerMessage } from '../domain/events';
+import { isRouteMessage } from '../domain/routes';
 import type { FleetState } from '../store/fleetStore';
 import { CircuitBreaker } from '../transport/circuitBreaker';
 import type { ConnectionStatus } from '../transport/connection';
@@ -77,6 +78,14 @@ export function startApp(dispatcherName: string, deps: AppDependencies, store: S
     }
   }
 
+  // Routes snapshot (on start and after a WS gap). Retried like any read; no breaker (that's for the fleet endpoint).
+  async function loadRoutes(): Promise<void> {
+    if (stopped) return;
+    const result = await withRetry(() => rest.getRoutes());
+    if (stopped || !result.ok) return;
+    store.getState().applyRoutesResponse(result.data.routes);
+  }
+
   const sse = new SseClient({
     createEventSource: deps.createEventSource,
     onEvent: (event) => store.getState().applySseEvent(event),
@@ -92,11 +101,16 @@ export function startApp(dispatcherName: string, deps: AppDependencies, store: S
 
   function handleWsMessage(message: WsServerMessage): void {
     if (message.type === 'fleet_reset') {
-      // The server re-created every truck: drop local truck state and load the new fleet.
+      // The server re-created every truck and deleted all routes: drop local state and reload.
       store.getState().resetFleet();
       void loadFleet();
+      void loadRoutes();
+      return;
     }
-    // Route and presence messages are handled in later phases.
+    if (isRouteMessage(message)) {
+      store.getState().applyRouteMessage(message);
+    }
+    // Presence messages are handled in Phase 6.
   }
 
   const ws = new WsClient({
@@ -111,6 +125,7 @@ export function startApp(dispatcherName: string, deps: AppDependencies, store: S
       store.getState().setDispatcher(dispatcherId, dispatcherName);
       // First registration → initial load; a re-registration after a WS gap → refresh (we may have missed events).
       void loadFleet();
+      void loadRoutes();
       // Idempotent: only the first call opens the stream.
       sse.connect();
     },

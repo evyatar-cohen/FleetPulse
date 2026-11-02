@@ -3,11 +3,13 @@
 // Rule:    actions update the right state; nothing changes when the domain returns the same data.
 import { beforeEach, describe, expect, it } from 'vitest';
 import { FleetResponseSchema } from '../../src/domain/api';
-import { SseEventSchema } from '../../src/domain/events';
+import { SseEventSchema, WsServerMessageSchema } from '../../src/domain/events';
+import { isRouteMessage } from '../../src/domain/routes';
 import { useFleetStore } from '../../src/store/fleetStore';
 import fleetFixture from '../../fixtures/rest/fleet_200.json';
 import heartbeatFixture from '../../fixtures/sse/heartbeat.json';
 import telemetryFixture from '../../fixtures/sse/telemetry.json';
+import assignedFixture from '../../fixtures/ws/route_assigned.json';
 
 const fleetResponse = FleetResponseSchema.parse(fleetFixture.body);
 
@@ -45,5 +47,18 @@ describe('Store wiring', () => {
     useFleetStore.getState().applyFleetResponse(fleetResponse);
     useFleetStore.getState().resetFleet();
     expect(useFleetStore.getState().trucks).toEqual({});
+  });
+
+  it('applyRouteMessage updates the route AND the truck in one step; a duplicate changes nothing', () => {
+    useFleetStore.getState().applyFleetResponse(fleetResponse);
+    const message = WsServerMessageSchema.parse(assignedFixture);
+    if (!isRouteMessage(message)) throw new Error('fixture');
+    useFleetStore.getState().applyRouteMessage(message);
+    const state = useFleetStore.getState();
+    expect(state.routes['route_1']).toBeDefined();
+    expect(state.trucks[message.route.truckId]?.currentRouteId).toBe('route_1');
+
+    useFleetStore.getState().applyRouteMessage(message);
+    expect(useFleetStore.getState()).toBe(state);
   });
 });

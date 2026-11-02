@@ -368,3 +368,41 @@ Feeds the README and interview prep.
 - **Why:** the same "physically impossible" rule as the speed detector — generic, not batch-specific; found by a
   real-data test that failed on the first version (the few-ms-newer batch reading).
 - **Trade-off:** a genuinely fast real movement between two late points would be hidden from the path (never the marker).
+
+---
+
+## Phase 5 — Routes
+
+### D39. Routes live in the same store; WS route events applied by version
+- **Decision:** `routes` is a new part of the single Zustand store; logic in pure `domain/routes.ts`. Sources:
+  `GET /api/routes` at startup and the WS events `route_assigned` / `route_updated` / `route_reassigned` (the server
+  broadcasts them to everyone, including the dispatcher who made the change). An event is applied only if its
+  `route._version` is newer than what we have (old/duplicate events never overwrite newer data). The same action
+  updates the trucks' `currentRouteId` (assign → set; complete/cancel → clear; reassign → move). `fleet_reset`
+  clears routes too.
+- **Alternatives:** a separate routes store (a reassign touches routes and trucks → two stores could briefly disagree).
+- **Why:** one action updates everything a route event affects, atomically.
+
+### D40. Client-side audit log, seeded from the routes snapshot
+- **Decision:** the server has no audit endpoint, so we build the log from WS route events (who, what, when, route
+  version), keeping the last 200 entries. At startup it is seeded from `GET /api/routes`: each route's
+  `assignedBy/At`, `reassignedBy/At`, `lastModifiedBy/At` become entries marked "from snapshot". Entries are keyed by
+  route + kind + the server's timestamp of that change, so a reloaded snapshot or a live event describing the same
+  change never creates a duplicate.
+- **Alternatives:** start empty at page load (simpler; a dispatcher opening the page sees no history).
+- **Why:** the dispatcher sees the existing history right away (user's choice).
+- **Limitation:** from the snapshot we only know the LATEST change of each kind per route (and not the previous
+  value) — intermediate changes before the tab opened are lost. A real system would have a server-side audit log.
+
+### D41. Route business rules enforced on the client (the server accepts anything)
+- **Decision:** pure `domain/routeRules.ts`, used by the UI (disable invalid buttons) and by the actions (check again
+  before sending). Status transitions: assigned → in-progress | cancelled; in-progress → completed | cancelled;
+  completed / cancelled are final (assigned → completed blocked: a route can't finish without starting). New route:
+  destination 3–200 chars (trimmed), priority low/normal/high (default normal), notes ≤ 500 chars, the truck must
+  exist, have no current route and not be in maintenance. Reassign: route not finished, target ≠ current truck,
+  target exists, has no route, not in maintenance.
+- **Alternatives:** rely on the server (it accepts any status/destination; it even creates a route on a maintenance
+  truck and marks it active).
+- **Why:** the brief asks for input validation; blocking "create on maintenance" is consistent with the server's own
+  reassign rule.
+- **Real-world note:** the backend must enforce these too — client checks are for UX, not security.
