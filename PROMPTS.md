@@ -8,7 +8,10 @@ JS/TS/React), the working rules (one phase at a time, plan before code, explain 
 libraries) and the target architecture. The goal: use AI as a pair programmer I can learn from, and never submit
 code I can't explain. Every decision went into [DECISIONS.md](DECISIONS.md) with its alternatives and trade-offs.
 
-**How the way of working changed.**
+**Result:** all basic requirements, all 8 server quirks handled, three bonuses (circuit breaker, observability
+panel, filterable fleet view), 344 tests. Built in phases 0–9, each reviewed and merged through pull requests.
+
+**How the way of working changed.
 - Phases 0–2: small steps, one item per message, tests written first and approved by me before any logic.
 - Phase 3: I pushed back on a long time estimate → "faster mode": tests and code together for simple items,
   tests-first only for tricky logic (circuit breaker, 409 conflicts, ghost presence).
@@ -244,5 +247,7 @@ code I can't explain. Every decision went into [DECISIONS.md](DECISIONS.md) with
 
 **Where I steered / what I caught**
 - I asked to make sure the README covers the exact required list → headings renamed to the brief's wording.
-- `npm install` and `npm test` were verified clean; `npm start` couldn't be re-checked automatically because my own
-  running app held the ports — to be checked by hand.
+- I asked for a last pass over the README, this journal and DECISIONS.md so they describe the finished project
+  (status lines added, two outdated "later" notes in DECISIONS.md resolved).
+- Final check before sending: clean `npm install`, `npm test` (344 passing), and the app served by `npm start`
+  (UI, API through the dev proxy, and the mock server all answering).

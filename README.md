@@ -8,6 +8,10 @@ this project.
 Stack: React 19 + TypeScript (strict) + Vite, Zustand (state), Zod (runtime validation), Vitest (tests).
 The map is a plain SVG coordinate grid (the brief says map quality is not graded).
 
+**Status: complete.** All basic requirements (fleet overview & map, route management, dispatcher presence, vehicle
+detail panel, unit tests — 344 passing) plus three bonuses: **circuit breaker** with degraded "stale" mode,
+**observability panel**, and **filterable fleet view**. All 8 server quirks are handled (see the table below).
+
 ---
 
 ## Setup instructions
