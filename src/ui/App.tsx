@@ -9,16 +9,20 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { FleetMap } from './components/FleetMap';
 import { Header } from './components/Header';
 import { NameForm } from './components/NameForm';
+import { ObservabilityPanel } from './components/ObservabilityPanel';
 import { AuditLogPanel } from './components/routes/AuditLogPanel';
 import { RoutesPanel } from './components/routes/RoutesPanel';
 import { TruckDetailPanel } from './components/TruckDetailPanel';
 import { TruckList } from './components/TruckList';
+import { NO_FILTER, type TruckFilter } from './truckFilter';
 
 export function App(): ReactElement {
   const [dispatcherName, setDispatcherName] = useState<string | null>(() => loadDispatcherName());
   // The running app's actions (routes, truck detail/alerts, selection) — null until started.
   const [running, setRunning] = useState<RunningApp | null>(null);
   const selectedTruckId = useFleetStore((state) => state.selectedTruckId);
+  // Fleet filter: shared by the truck list and the map. Local UI state (per tab), not in the store.
+  const [truckFilter, setTruckFilter] = useState<TruckFilter>(NO_FILTER);
 
   useEffect(() => {
     if (dispatcherName === null) return;
@@ -55,12 +59,12 @@ export function App(): ReactElement {
       <div className="dashboard">
         <div className="area-map">
           <ErrorBoundary area="the map">
-            <FleetMap onSelect={selectTruck} />
+            <FleetMap onSelect={selectTruck} filter={truckFilter} />
           </ErrorBoundary>
         </div>
         <div className="area-trucks">
           <ErrorBoundary area="the truck list">
-            <TruckList onSelect={selectTruck} />
+            <TruckList onSelect={selectTruck} filter={truckFilter} onFilterChange={setTruckFilter} />
           </ErrorBoundary>
         </div>
         <div className="area-routes">
@@ -77,6 +81,11 @@ export function App(): ReactElement {
       {running !== null && selectedTruckId !== null && (
         <ErrorBoundary area="the truck details">
           <TruckDetailPanel truckId={selectedTruckId} actions={running.truckActions} onClose={() => selectTruck(null)} />
+        </ErrorBoundary>
+      )}
+      {running !== null && (
+        <ErrorBoundary area="the observability panel">
+          <ObservabilityPanel sources={running} />
         </ErrorBoundary>
       )}
     </main>

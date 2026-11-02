@@ -118,7 +118,7 @@ glitch; if it stays off for 6 s → we accept and show the new value as real.
   Real world: tune it from logged glitch durations.
 - While `unverified`, no low-fuel alert can fire — alerts use only the trusted value.
 - The 6 s window is the safety bound: a real problem is never hidden for longer.
-- Each episode ends with `resolved: 'glitch' | 'confirmed'`, which the anomaly dashboard can log.
+- Each episode ends with `resolved: 'glitch' | 'confirmed'` — how it ended.
 - Out of 0..100 → `sensor_fault` immediately, no window.
 
 *My answer: mostly right — but after 6 s we don't "flag abnormal behavior": we accept the value as real and show it.*
@@ -473,3 +473,31 @@ so any client can decode a name from any id it sees, even for someone who left b
 - Decoded names are untrusted: bad encoding or > 40 chars → ignored; React escapes text, so no HTML injection.
 - Weaknesses: longer ids; name fixed per identity; it's a client convention, not a server feature.
 - Real world: names come from login (user DB / auth token), and the server includes them in events and snapshots.
+
+---
+
+## Phase 8 — Bonuses
+
+### Q38. How does the observability panel get its numbers, and why not from the store?
+**One-liner:** The SSE and WS clients already count received, dropped and reconnects (and WS ping latency); the
+panel reads those counters once per second while it's open — outside the store, so dev numbers never re-render the
+dispatcher screens.
+
+**Detail:**
+- Messages/s = counter difference ÷ time over the last 10 s; the server sends bursts every 2 s, so a 1 s delta jumps.
+- Dropped = messages that failed JSON parsing or Zod validation — counted, not crashing the app.
+- Polling stops when the panel closes (`useEffect` cleanup clears the interval).
+- In production I'd send the same counters to a metrics system (e.g. Prometheus/Grafana via an endpoint) and alert
+  on: reconnect rate, dropped rate, WS latency, SSE message rate falling to 0, 503 rate / breaker opens, 409 rate.
+
+### Q39. How does the fleet filter work, and what does "low fuel" mean there?
+**One-liner:** One pure `matchesFilter(truck, filter)` used by both the list (hides rows) and the map (dims dots);
+"low fuel" is the TRUSTED fuel below the vehicle profile's threshold — the same rule as the low-fuel alert.
+
+**Detail:**
+- Status / fuel / region / route combine with AND; Clear resets.
+- The map dims instead of hiding: hiding would change the map's bounds and move every other truck.
+- Regions are 4 quadrants around the city center (the server has no regions) — a stated, arbitrary choice.
+- A truck with an unknown value doesn't match a filter on that field: we show only what we can confirm.
+- Filter state is local (per tab, `useState` in App): no other part of the app needs it.
+

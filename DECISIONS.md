@@ -555,3 +555,34 @@ Feeds the README and interview prep.
   another client/server (no `.`) just show the id.
 - **Real-world fix:** names come from login (user table / auth token) and the server sends a presence snapshot to
   new clients (in Redis when there are several server instances); clients never invent identities.
+
+## Phase 8 — Bonuses
+
+### D55. Observability panel reads the transport counters directly, not through the store
+- **Decision:** a "🛠 Dev" button (bottom-left) opens a small panel: SSE messages/s (10 s average), SSE and WS
+  received / dropped, reconnect counts, WS ping → pong latency. It reads `SseClient.stats` / `WsClient.stats` (counters
+  the clients already kept since Phase 3) once per second, **only while open**.
+- **Alternatives:** put the stats in the Zustand store (every second → store update → every subscribed screen
+  re-checks; dev numbers would cost dispatcher screens); a 1-second delta for the rate (the server sends bursts every
+  2 s, so it jumps 0 ↔ ~24).
+- **Why:** developer-facing data shouldn't touch the dispatcher data path; polling only when open costs nothing
+  otherwise. "Dropped" = failed JSON/Zod validation at the transport boundary.
+- **Trade-off:** counters are since page load (not per minute); the rate starts empty for a second after opening.
+  Not shown: retry counts and circuit-breaker state (the stale banner already shows degraded mode).
+
+### D56. Filterable fleet view: one filter for list and map; regions = quadrants around the city center
+- **Decision:** four dropdowns above the truck list — status, fuel (low / under 50%), region, route (has / no route) —
+  plus Clear. Filters combine with AND. Pure `ui/truckFilter.ts`. The list hides non-matching trucks ("5 of 12");
+  the map **dims** them (removing them would rescale the map and move every other dot). Filter state is local to
+  `App` (per tab), not in the store.
+- **Fuel** uses the TRUSTED value (same as the low-fuel alert), so a glitch 0% never makes a truck "low"; "low" uses
+  the vehicle profile threshold (15% for trucks).
+- **Regions:** the server has none, so `domain/regions.ts` defines four quadrants (NE/NW/SE/SW) around the server's
+  `CITY_CENTER` (Tel Aviv) — copied, because no API exposes it.
+- **Unknown values don't match:** a truck with no reading yet / no trusted fuel isn't shown under a fuel/region
+  filter — we show only what we can confirm.
+- **Alternatives:** free-drawn regions on the map (that's the geofencing bonus — much bigger); filter in the store
+  (no other screen needs it); hide filtered trucks on the map too (map jumps).
+- **Trade-off:** the quadrant regions are arbitrary and the center is a copied constant; a real system would get
+  named regions (depots, districts) from the backend.
+
