@@ -272,4 +272,3 @@ mock server** (`fixtures/`, produced by `scripts/capture-fixtures.mjs`).
 | [DECISIONS.md](DECISIONS.md) | Every decision with alternatives and trade-offs. |
 | [PROMPTS.md](PROMPTS.md) | AI usage journal. |
 | [GLOSSARY.md](GLOSSARY.md) | Terms used in the code, in plain English. |
-| [INTERVIEW_PREP.md](INTERVIEW_PREP.md) | Questions and answers about the design. |
