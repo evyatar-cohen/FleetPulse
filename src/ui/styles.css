@@ -7,7 +7,58 @@ body {
 }
 
 main {
-  padding: 12px 16px;
+  padding: 8px 12px;
+}
+
+/* One-screen dashboard: header on top, then a grid that fills the rest of the window.
+   map + trucks (left) | routes (middle) | route history (right). Each area scrolls by itself. */
+.app {
+  height: 100vh;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+}
+
+.dashboard {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 4fr) minmax(0, 5fr) minmax(0, 2.5fr);
+  grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-areas:
+    'map routes history'
+    'trucks routes history';
+  gap: 10px;
+}
+
+.area-map { grid-area: map; }
+.area-trucks { grid-area: trucks; }
+.area-routes { grid-area: routes; }
+.area-history { grid-area: history; }
+
+.area-map, .area-trucks, .area-routes, .area-history {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.area-map > .panel, .area-trucks > .panel, .area-routes > .panel, .area-history > .panel {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+/* Narrow screens: stack the areas and let the page scroll. */
+@media (max-width: 1100px) {
+  .app { height: auto; }
+  .dashboard {
+    grid-template-columns: 1fr;
+    grid-template-rows: none;
+    grid-template-areas: 'map' 'trucks' 'routes' 'history';
+  }
+  .area-map > .panel, .area-trucks > .panel, .area-routes > .panel, .area-history > .panel {
+    max-height: 70vh;
+  }
 }
 
 h1 {
@@ -51,15 +102,6 @@ h2 {
 .banner-warn { background: #fff4d6; border: 1px solid #f1d27a; }
 .banner-error { background: #fde3e3; border: 1px solid #e9a3a3; }
 
-.layout {
-  display: grid;
-  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
-  gap: 12px;
-}
-
-@media (max-width: 900px) {
-  .layout { grid-template-columns: 1fr; }
-}
 
 .panel {
   background: #fff;
@@ -71,7 +113,7 @@ h2 {
 table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 14px;
+  font-size: 13px;
 }
 
 th, td {
@@ -109,9 +151,17 @@ th, td {
   color: #888;
 }
 
+.area-map > .panel {
+  display: flex;
+  flex-direction: column;
+}
+
+/* The SVG keeps its aspect ratio and shrinks to fit the map area (no scrolling). */
 .fleet-map {
+  flex: 1;
+  min-height: 0;
   width: 100%;
-  height: auto;
+  height: 100%;
   background: #fbfcfd;
   border: 1px solid #e3e6ea;
 }
@@ -144,9 +194,6 @@ th, td {
   font-size: 15px;
 }
 
-.layout + .layout {
-  margin-top: 12px;
-}
 
 button {
   font: inherit;
@@ -169,7 +216,7 @@ button:disabled {
 
 .route-form {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr)) auto;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
   align-items: end;
   margin-bottom: 12px;
@@ -204,9 +251,7 @@ button:disabled {
   list-style: none;
   margin: 0;
   padding: 0;
-  font-size: 13px;
-  max-height: 360px;
-  overflow-y: auto;
+  font-size: 12px;
 }
 
 .audit-log li { padding: 3px 0; border-bottom: 1px solid #f0f0f0; }

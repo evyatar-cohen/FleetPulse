@@ -466,3 +466,10 @@ Feeds the README and interview prep.
 - **Decision:** if the route at the conflicting version already has our wanted values (made by someone else),
   `describeConflict` sets `sameAsMine` (no "apply mine"); the UI shows "Already done — <who> <what> just before you"
   with a single OK.
+
+### D48. One-screen dashboard layout
+- **Decision:** header on top, then a full-height CSS grid: map (top-left) + trucks (bottom-left) | routes (middle) |
+  route history (right). Each area scrolls on its own; the map SVG shrinks to fit its area. Below 1100 px wide the
+  areas stack and the page scrolls.
+- **Why:** user request — a dispatcher should see the fleet, the routes and the history at the same time without
+  scrolling the page.

@@ -40,25 +40,32 @@ export function App(): ReactElement {
   }
 
   return (
-    <main>
+    <main className="app">
       <ErrorBoundary area="the header">
         <Header />
       </ErrorBoundary>
-      <div className="layout">
-        <ErrorBoundary area="the map">
-          <FleetMap />
-        </ErrorBoundary>
-        <ErrorBoundary area="the truck list">
-          <TruckList />
-        </ErrorBoundary>
-      </div>
-      <div className="layout">
-        <ErrorBoundary area="the routes panel">
-          {routeActions === null ? <p className="muted">Starting…</p> : <RoutesPanel actions={routeActions} />}
-        </ErrorBoundary>
-        <ErrorBoundary area="the route history">
-          <AuditLogPanel />
-        </ErrorBoundary>
+      {/* One-screen dashboard: each area scrolls on its own (see .dashboard in styles.css). */}
+      <div className="dashboard">
+        <div className="area-map">
+          <ErrorBoundary area="the map">
+            <FleetMap />
+          </ErrorBoundary>
+        </div>
+        <div className="area-trucks">
+          <ErrorBoundary area="the truck list">
+            <TruckList />
+          </ErrorBoundary>
+        </div>
+        <div className="area-routes">
+          <ErrorBoundary area="the routes panel">
+            {routeActions === null ? <p className="muted">Starting…</p> : <RoutesPanel actions={routeActions} />}
+          </ErrorBoundary>
+        </div>
+        <div className="area-history">
+          <ErrorBoundary area="the route history">
+            <AuditLogPanel />
+          </ErrorBoundary>
+        </div>
       </div>
     </main>
   );
