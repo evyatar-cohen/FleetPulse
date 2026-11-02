@@ -254,3 +254,42 @@ first attempt worked → show success.
 
 *My answer: "make it idempotent and ignore the repeat" — right risk, but we can't make the server idempotent; we
 detect "it was me" from the 409 instead.*
+
+---
+
+## Phase 4 — Minimal UI
+
+### Q21. Where does the business logic live — in the store or elsewhere? Why?
+**One-liner:** In pure domain functions; store actions are thin — read state, call the domain function, save the
+result. Like a backend's thin handler → service function → DB.
+
+**Detail:**
+- Example: `applyTelemetry(event)` → `applyTelemetryEvent(trucks, event)` (pure, runs the Phase 2 pipeline) → `set`.
+- Tests stay "data in → data out" with no store, React or mocks; swapping Zustand changes ~2 lines per action.
+- Zustand chosen over React Context because components subscribe to only the slice they read (selectors) —
+  with 12 trucks every 2 s, Context would redraw every consumer on every change.
+- Unchanged input returns the same object → React sees "no change" → no redraw.
+
+### Q22. Walk me through what happens when the page opens.
+**One-liner:** WS connect → `register_dispatcher` → `registered` gives our id (set on the REST client) → load the fleet
+(retry + breaker) → open SSE; then a fleet refresh every 30 s.
+
+**Detail:**
+- Why WS first: REST writes need `X-Dispatcher-Id`, which only `registered` gives us.
+- The REST snapshot gives every truck a first position before the first SSE tick (and if SSE is down).
+- Reload the fleet on: every `registered` (a WS gap may have hidden events), `fleet_reset`, SSE back from
+  reconnecting (no replay). While the breaker is open, the next load is the probe at the cooldown end.
+- All wiring is in one function, `startApp()` (composition root), with injected fetch/EventSource/WebSocket →
+  tested with fakes; `stop()` cleans up (needed for React StrictMode and tests).
+
+### Q23. How do you keep the UI from freezing with 12 trucks every 2 s plus 30-reading bursts?
+**One-liner:** The store updates on every event (data exact), but components read live truck data through a hook
+that redraws at most once per second — the first change immediately, a burst collapsed into one trailing redraw.
+
+**Detail:**
+- Throttling the *drawing*, not the *data*: alerts/conflicts still see current data; nothing is lost.
+- Plus: Zustand selectors (only components using a slice redraw), unchanged input returns the same object (no
+  redraw), bounded data (300-point paths).
+- The throttle is a pure timing helper tested with fake timers; the hook is thin glue (subscribe in `useEffect`,
+  unsubscribe + cancel in its cleanup).
+- Trade-off: up to 1 s display lag — invisible with 2 s telemetry.

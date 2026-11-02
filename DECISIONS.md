@@ -282,3 +282,61 @@ Feeds the README and interview prep.
   `invalid_response` (no retry, no breaker trip, no crash).
 - **Tests added:** `circuit_open` is never retried; connect → close → connect for SSE and WS; one misleading
   test name fixed.
+
+---
+
+## Phase 4 — Minimal UI
+
+### D31. Map = simple SVG coordinate grid, not Leaflet
+- **Decision:** draw trucks (markers), their recent path and status colors in an SVG scaled to the fleet's lat/lng
+  bounds. No map library.
+- **Alternatives:** Leaflet + react-leaflet (real street map; 2 dependencies; tiles need internet).
+- **Why:** the assignment says "map quality is not graded … a simple coordinate grid … is fine. We're testing your
+  data pipeline". No dependency, works offline, fully meets the requirement (12 live trucks, status distinction,
+  one marker per truck + path for batches).
+- **Trade-off:** no streets/landmarks; a bonus like geofencing would draw zones on the same grid.
+
+### D32. State store: Zustand
+- **Decision:** one Zustand store holds trucks, routes, connection status and freshness.
+- **Alternatives:** React Context + useReducer (every consumer re-renders on every change — bad at 12 trucks × 2 s);
+  Redux Toolkit (more boilerplate and concepts); our own store + `useSyncExternalStore` (re-implementing Zustand).
+- **Why:** tiny (~1 KB), components subscribe only to the slice they read (selectors), usable outside React
+  (transport callbacks write to it directly).
+- **Trade-off:** a new dependency.
+
+### D33. Store actions are thin; logic lives in pure domain functions
+- **Decision:** a store action only reads state, calls a pure domain function (e.g.
+  `applyTelemetryEvent(trucks, event)` → new trucks) and saves the result. No logic inside the store.
+- **Alternatives:** write the logic inside Zustand actions.
+- **Why:** same as a backend's thin handler → service function → DB. Domain functions are tested like Phase 2
+  (data in → data out, no store, no React, no mocks); swapping the store library would change ~2 lines per action.
+- **Trade-off:** one more small file per area.
+
+### D34. Fleet state = REST info + Phase 2 telemetry per truck
+- **Decision:** `TruckView` = info from `GET /api/fleet` (name, vehicle type, route, snapshot status) + Phase 2
+  `TruckTelemetry`. The snapshot is also fed in as a first reading (timestamp = response time) through the normal
+  ordering rules — trucks have a position before the first SSE tick, and an older snapshot never overwrites newer
+  live data. Live status = newest accepted reading. Trucks missing from a new snapshot are removed; a reading for an
+  unknown truck creates it. Unchanged input returns the same object (no redraw).
+- **Alternatives:** wait for SSE before showing trucks (empty map if SSE is down); keep REST and SSE data separate.
+- **Trade-off:** each 30 s snapshot adds one extra path point per truck.
+
+### D35. Startup wiring in one place: `src/app/startup.ts`
+- **Decision:** `startApp()` creates the REST/SSE/WS clients, wires their callbacks to the store and runs the
+  startup order (WS → registered → fleet → SSE), the 30 s fleet refresh and `fleet_reset` handling; `stop()`
+  cleans everything. React calls it once. Dependencies (fetch, EventSource, WebSocket, id store) are injected →
+  tested with fakes. `src/app/` is the "composition root": the one place that knows every layer.
+- **Alternatives:** start connections from inside React components.
+- **Why:** the order is readable in one function; no double-start under React StrictMode; testable without React.
+- **D35 addendum — details:** the next fleet load is scheduled at the breaker cooldown end while open (that call is
+  the probe), otherwise in 30 s. Reloads also on every `registered` (initial + after a WS gap), on `fleet_reset`,
+  and when SSE returns from `reconnecting`. A load requested while one is in flight is skipped.
+  **Limitation:** a `fleet_reset` arriving during an in-flight load is covered only by the next refresh (≤ 30 s).
+
+### D36. Throttled rendering: the UI reads a 1 s throttled view of the store
+- **Decision:** the store updates on every SSE event (data exact, nothing lost); components that show live truck
+  data read it through a hook that re-renders at most once per second (first change immediately, last change
+  always delivered). The throttle is a small pure-timing helper tested with fake timers; the hook is thin glue.
+- **Alternatives:** batch store writes every second (delays data for everyone, complicates the pipeline);
+  no throttling (graded requirement; batch bursts could freeze the UI — the "froze last Tuesday" story).
+- **Trade-off:** the display can lag up to 1 s behind the data.

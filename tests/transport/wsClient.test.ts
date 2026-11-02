@@ -4,69 +4,12 @@
 //          Ping every 10 s; no pong within 5 s → reconnect. Closed socket / no `registered` within 10 s → reconnect with
 //          backoff, re-register with the SAME id, re-send the latest viewed truck (no queue). close() stops everything.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { WsClientMessage, WsServerMessage } from '../../src/domain/events';
+import type { WsServerMessage } from '../../src/domain/events';
 import type { ConnectionStatus } from '../../src/transport/connection';
-import { WS_DEFAULTS, WsClient, type DispatcherIdStore, type WebSocketLike } from '../../src/transport/wsClient';
+import { WS_DEFAULTS, WsClient, type DispatcherIdStore } from '../../src/transport/wsClient';
+import { FakeWebSocket, memoryIdStore } from '../helpers/fakes';
 import dispatcherJoinedFixture from '../../fixtures/ws/dispatcher_joined.json';
 import routeUpdatedFixture from '../../fixtures/ws/route_updated.json';
-
-const CONNECTING = 0;
-const OPEN = 1;
-const CLOSED = 3;
-
-// A fake WebSocket the test drives by hand; records what the client sends.
-class FakeWebSocket implements WebSocketLike {
-  readyState = CONNECTING;
-  onopen: ((event: Event) => void) | null = null;
-  onmessage: ((event: MessageEvent) => void) | null = null;
-  onclose: ((event: Event) => void) | null = null;
-  onerror: ((event: Event) => void) | null = null;
-  sent: WsClientMessage[] = [];
-  closed = false;
-
-  constructor(readonly url: string) {}
-
-  send(data: string): void {
-    this.sent.push(JSON.parse(data) as WsClientMessage);
-  }
-
-  close(): void {
-    this.readyState = CLOSED;
-    this.closed = true;
-  }
-
-  emitOpen(): void {
-    this.readyState = OPEN;
-    this.onopen?.(new Event('open'));
-  }
-
-  emitMessage(message: unknown): void {
-    const data = typeof message === 'string' ? message : JSON.stringify(message);
-    this.onmessage?.(new MessageEvent('message', { data }));
-  }
-
-  // The server or network closed the socket.
-  emitClose(): void {
-    this.readyState = CLOSED;
-    this.onclose?.(new Event('close'));
-  }
-
-  sentOfType(type: WsClientMessage['type']): WsClientMessage[] {
-    return this.sent.filter((message) => message.type === type);
-  }
-}
-
-// In-memory stand-in for sessionStorage.
-function memoryIdStore(initial: string | null = null): DispatcherIdStore & { value: string | null } {
-  const store = {
-    value: initial,
-    load: () => store.value,
-    save: (id: string) => {
-      store.value = id;
-    },
-  };
-  return store;
-}
 
 let sockets: FakeWebSocket[];
 let messages: WsServerMessage[];

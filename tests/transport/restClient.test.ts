@@ -4,6 +4,7 @@
 //          registered; If-Match on route updates; writes refused locally before registration.
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { REQUEST_TIMEOUT_MS, RestClient, type FetchFn } from '../../src/transport/restClient';
+import { jsonResponse } from '../helpers/fakes';
 import alertFixture from '../../fixtures/rest/alert_201.json';
 import fleetFixture from '../../fixtures/rest/fleet_200.json';
 import fleetBusyFixture from '../../fixtures/rest/fleet_503.json';
@@ -30,9 +31,6 @@ function fakeFetch(...responses: Response[]): { fetch: FetchFn; calls: RecordedC
   return { fetch, calls };
 }
 
-function jsonResponse(status: number, body: unknown, headers: Record<string, string> = {}): Response {
-  return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json', ...headers } });
-}
 
 function headerOf(call: RecordedCall | undefined, name: string): string | undefined {
   const headers = (call?.init.headers ?? {}) as Record<string, string>;
