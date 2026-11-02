@@ -129,3 +129,65 @@ no other code changes.
   profile instead of crashing.
 
 *My answer: correct.*
+
+---
+
+## Phase 3 — Transport
+
+### Q10. SSE vs WebSocket — what's the difference and why use both?
+**One-liner:** SSE is one-way (server → client) over plain HTTP with built-in reconnect; WebSocket is two-way. We use
+SSE for telemetry (we only receive) and WebSocket for presence and route events (we also send).
+
+**Detail:**
+- SSE: a long HTTP response of `data: …` lines; the browser's `EventSource` reconnects by itself; keep-alive =
+  server heartbeat (15 s here).
+- WebSocket: its own protocol after an HTTP upgrade; reconnect is manual; keep-alive = our `ping` → `pong`.
+- We send `register_dispatcher`, `ping`, `viewing_truck` → needs WS.
+
+### Q11. What is optimistic locking and how does `If-Match` work here?
+**One-liner:** Don't block editors; detect conflicts when saving. We send the route's `_version` in `If-Match`; if the
+server's version differs, it rejects with 409 instead of overwriting.
+
+**Detail:**
+- `_version` is a field in the route data (set by the server, +1 on each change); `If-Match` is the request header
+  we send with that value. Like `UPDATE … WHERE version = 3` in a DB.
+- Without it: last write wins silently — the assignment's "nobody knew who did what" story.
+- This server: `If-Match` is optional (we must always send it); reassign has no version check (only client-side
+  warnings + detection via WS — a real fix needs the server); a 409 can arrive late without "who".
+
+### Q12. A 409 happened. What does the dispatcher see and do?
+**One-liner:** Who changed it and what changed, then: keep theirs (default), apply mine anyway (resend with the new
+version, after confirmation), or cancel. Never retry automatically.
+
+**Detail:**
+- An automatic retry with the new version = last write wins = the bug the lock prevents.
+- If the other change made mine impossible (route completed/cancelled), only "OK" is offered.
+- "Who": from the 409 body (immediate one) or the WS event with the matching `route._version` (delayed one).
+
+### Q13. Why does the REST client return results instead of throwing?
+**One-liner:** Because a 409 or 503 is normal flow here, not an exception — returning
+`{ ok: false, error: { kind } }` makes the compiler force every caller to handle it.
+
+**Detail:** alternatives were exceptions (TS doesn't track thrown types, easy to forget), `null` (loses why),
+a library (new dependency), a hybrid (two mechanisms). `fetch` itself doesn't throw on 4xx/5xx — only on "no answer"
+(like Python `requests` without `raise_for_status()`).
+
+### Q14. Why not retry writes automatically?
+**One-liner:** They aren't idempotent — after a timeout we don't know if the server already saved it, so a retry could
+create a route or send an alert twice.
+
+**Detail:** reads are retried automatically (503, network, timeout; Retry-After or backoff; max 3 attempts; wait cap
+10 s). Writes get a manual "Retry" button; if the retry gets a 409 caused by our own id, the first attempt succeeded.
+PATCH with `If-Match` is naturally safe (a repeat gets 409).
+
+### Q15. How does the circuit breaker work, and what does the dispatcher see?
+**One-liner:** After 3 failed requests in a row it stops calling the server for 10 s, shows the last data as "stale",
+then lets one probe through; success closes it again.
+
+**Detail:**
+- States: CLOSED → (3 failures) → OPEN → (cooldown over) → HALF-OPEN → probe ok → CLOSED / probe fails → OPEN.
+- It's passive — a gatekeeper checked on each call, like a decorator/middleware, not a background service.
+- It sits inside retry, so it counts every request and an open breaker answers instantly (`circuit_open`).
+- Dispatcher: a few seconds of retries, then a "stale since …" banner; the map keeps moving (SSE is separate);
+  the banner disappears by itself on recovery. Server: one request per 10 s while sick.
+- It's a bonus feature in the brief, but listed under "Performance & Resilience" in the grading.

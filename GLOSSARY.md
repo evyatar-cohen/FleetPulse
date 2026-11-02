@@ -50,6 +50,8 @@ Grows as we go — each phase adds the new terms it introduces.
 - **`satisfies`** — checks a value matches a type but keeps its exact shape (e.g. known keys like `truck`).
 - **`keyof typeof X`** — the union of an object's key names, e.g. `'truck'`. Used for `VehicleType`.
 - **Type guard (`x is T`)** — a function returning boolean that also tells TS the type when true.
+- **Generics `<T>`** — a type parameter, like `TypeVar` in Python: `request<T>(schema: ZodType<T>)` returns `T`.
+- **`Promise<T>`** — the type of an async result: `async function f(): Promise<Route>` (like `Coroutine[..., Route]`).
 - **`Partial<T>`** — the same type with every field optional. Tests use it to override only some fields.
 
 ## Validation
@@ -71,6 +73,20 @@ Grows as we go — each phase adds the new terms it introduces.
 
 - **Registry** — a list/map the pipeline reads (vehicle profiles, sensor detectors). Adding a feature = adding an
   entry, not editing pipeline code (open/closed principle).
+
+- **Result type** — return `{ ok: true, data } | { ok: false, error }` instead of throwing; the compiler forces
+  callers to handle the error (like returning `Ok | Err` instead of `raise`).
+- **Dependency injection** — pass a dependency in (e.g. `fetch` into `RestClient`) instead of using a global, so
+  tests can pass a fake. Like passing a `requests.Session` into a class.
+- **Idempotent** — doing it twice has the same effect as once (GET is; POST create is not). Only idempotent
+  operations get automatic retry.
+
+- **State machine** — a fixed set of states with fixed rules for moving between them (fuel detector,
+  circuit breaker).
+- **Circuit breaker** — after N failures in a row, stop calling a sick service for a cooldown, then let one probe
+  through. States: closed (normal) → open (fail fast) → half-open (probe).
+- **Exponential backoff** — wait longer after each failure (1 s, 2 s, 4 s…) to give a struggling server room.
+- **Getter (`get state()`)** — a property computed on read, like Python `@property`.
 
 ## React / frontend
 
@@ -99,6 +115,9 @@ Grows as we go — each phase adds the new terms it introduces.
 - **Heartbeat / ping-pong** — periodic small messages to prove the connection is still alive.
 - **Optimistic locking** — every route has `_version`; we send it as `If-Match`; the server rejects with 409 if
   someone changed it in between (same as version-column locking in a DB).
+- **`If-Match` header** — the version we last saw, sent with an update; the server rejects (409) if it changed.
+- **AbortController** — the standard way to cancel a `fetch`; we use it for the request timeout.
+- **`encodeURIComponent`** — escapes text for a URL, so an id like `../reset` can't change the path.
 - **409 Conflict** — HTTP status for "your write conflicts with the current state".
 - **503 + Retry-After** — "server busy, try again in N seconds".
 - **concurrently** — npm tool that runs several commands in one terminal (server + Vite) with prefixed output.

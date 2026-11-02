@@ -158,3 +158,55 @@ Feeds the README and interview prep.
 - **Trade-off / limitation:** a real sudden change is shown up to 6 s late. Below ~3% a drop to 0 fits the
   allowance and isn't caught. If the stream stops while unverified, the value stays "checking" — the
   connection-status indicator (Phase 3) covers it. The low-fuel alert must use only the trusted value (later phase).
+
+---
+
+## Phase 3 — Transport
+
+### D17. REST client returns `Result` values, not exceptions
+- **Decision:** every method returns `{ ok: true, data } | { ok: false, error }`; `error.kind` is a discriminated
+  union (version_conflict, truck_assigned, unavailable, network, timeout, invalid_response, …).
+- **Alternatives:** throw exceptions; return null; a Result library (neverthrow); hybrid (results + throws).
+- **Why:** a 409 is normal flow in this app (two dispatchers clash). The type forces callers to handle it, and the
+  error carries what the UI needs (who, current version).
+- **Trade-off:** an `if (!result.ok)` at every call site.
+
+### D18. `RestClient` is a class with `fetch` injected; built-in fetch + 10 s timeout
+- **Decision:** `new RestClient({ fetch })`; `setDispatcherId()` after WS `registered`. Writes before that are refused
+  locally (`not_registered`). `If-Match` on every route update. Path ids are URL-encoded.
+- **Alternatives:** global functions + global id; factory with closure; patching global fetch in tests (or MSW);
+  axios / ky.
+- **Why:** visible state, same pattern as SSE/WS clients; tests run the real code with a fake fetch; no dependency
+  for a thin wrapper; we write the resilience logic ourselves because it's graded and must be explained.
+- **Trade-off:** ~30 lines of our own error handling; one extra constructor parameter.
+
+### D19. Retry and circuit breaker are wrappers outside the client; business rules live in `domain/`
+- **Decision:** `withRetry` and `CircuitBreaker` wrap calls explicitly. Automatic retry only for reads (idempotent).
+  Writes get a manual "Retry" in the UI; a 409 from our own earlier attempt is treated as success.
+- **Alternatives:** retry inside every client method; a resilience library (cockatiel/opossum).
+- **Why:** each piece is simple and tested alone; a write can never be retried by accident (a lost response could
+  otherwise create a route twice or send an alert twice).
+- **Trade-off:** one more layer; nested-looking calls.
+
+### D20. Retry policy for reads
+- **Decision:** `withRetry()` retries temporary errors (503, network, timeout); 3 attempts in total; wait =
+  `Retry-After` (seconds) when present, otherwise exponential backoff (1 s, 2 s); a requested wait above 10 s →
+  return the error immediately. `sleep` is injected so tests don't wait.
+- **Alternatives:** retry only 503; fixed wait; retry forever / 5+ attempts; always obey Retry-After.
+- **Why:** respects the server's hint (assignment requirement) but works without it (network errors, proxies,
+  HTTP-date format). 3 attempts make a failed load ~0.3% likely at 15% 503s; the cap keeps the UI responsive —
+  long outages are the circuit breaker's job.
+- **Not done:** jitter (random spread of waits) — matters with many clients ("thundering herd"), not with 1–2 tabs.
+
+### D21. Circuit breaker on `GET /api/fleet` (bonus, partly graded under Performance & Resilience)
+- **Decision:** a passive state machine CLOSED → OPEN → HALF-OPEN. Failures = 503, network, timeout (same list as
+  retry). It counts **every request**: it sits inside retry — `withRetry(() => breaker.call(() => rest.getFleet()))`.
+  3 failures in a row → OPEN for a 10 s cooldown: calls return `circuit_open` immediately (retry doesn't retry it).
+  After the cooldown the next call is the probe (HALF-OPEN): success → CLOSED, failure → OPEN again.
+  While open, the store shows the last fleet data marked "stale"; SSE positions keep updating.
+- **Alternatives:** count only 503 (a dead server would never trip it); breaker outside retry (needs 9 failed
+  requests to trip); active breaker with its own probe timer; growing cooldown.
+- **Why:** matches the spec ("503 three times consecutively"), reacts fast, and protects a sick server (one request
+  per 10 s instead of a stream). Passive = no timers or lifecycle in the breaker; the clock is injected for tests.
+  The store's 30 s fleet refresh (Phase 4) provides the calls and schedules the next one at the cooldown end.
+- **Trade-off:** recovery is noticed only on the next call (≤ ~10 s with scheduling).

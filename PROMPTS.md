@@ -114,3 +114,27 @@ and never submit code I can't explain.
 
 **My notes**
 - _(add your own notes here)_
+
+---
+
+## Phase 3 — Transport (in progress)
+
+**How I worked with the AI this phase**
+- Asked for a remaining-phases estimate; pushed back that 18–26 h was too much → we agreed a faster mode
+  (tests + code together for simple items, tests-first only for tricky logic), estimate ~10–14 h.
+- For each item: asked to understand what it means, how it will be implemented, and the options/trade-offs —
+  choice by choice, with alternatives.
+
+**What I questioned / changed**
+- Asked for SSE vs WebSocket differences, and what optimistic locking and `If-Match` mean ("explain like I'm
+  stupid"); clarified that `_version` is the data field and `If-Match` the header we send.
+- Asked what a dispatcher can do after a conflict → keep theirs / apply mine / cancel, never auto-retry.
+- Challenged "no retry for writes" ("as a user I'd want to retry") → automatic retry for reads only, manual Retry
+  for writes, detect "my own earlier attempt succeeded".
+- Asked whether the server really sends Retry-After → yes for its 503, but we fall back to backoff without it.
+- Noticed the circuit breaker is a **bonus** feature and asked to finish main tasks before bonuses; decided to
+  finish the breaker anyway since it's already started (and is listed in the grading).
+- Asked what really happens with a passive breaker → step-by-step timeline.
+
+**My notes**
+- _(add your own notes here)_
