@@ -258,6 +258,8 @@ and never submit code I can't explain.
 - I noticed many trucks at 5% fuel. Instead of guessing, the AI found the cause in `server.js`: active trucks drain
   ~30%/hour, never refuel, floor 5%. I asked how to reset; I decided not to add a reset button (not a bonus).
 - Observability panel: built with the AI deciding details autonomously (D55).
+- Filterable fleet view: I picked it as the next bonus ("I think this one will be easy"). The AI chose the details
+  (D56): regions as quadrants because the server has no regions, the map dims instead of hiding.
 
 **My notes**
 - _(add your own notes here)_

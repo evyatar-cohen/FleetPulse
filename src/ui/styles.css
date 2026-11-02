@@ -355,3 +355,8 @@ tr.selected { background: #e8f0fe; }
 
 .observability th { font-weight: normal; padding: 2px 8px 2px 0; }
 .observability td { text-align: right; font-variant-numeric: tabular-nums; }
+
+/* Fleet filter (bonus): controls above the truck list; non-matching trucks dimmed on the map. */
+.filter-bar { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.filter-bar select { font: inherit; padding: 2px 4px; }
+.filtered-out { opacity: 0.15; }

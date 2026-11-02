@@ -490,3 +490,14 @@ dispatcher screens.
 - In production I'd send the same counters to a metrics system (e.g. Prometheus/Grafana via an endpoint) and alert
   on: reconnect rate, dropped rate, WS latency, SSE message rate falling to 0, 503 rate / breaker opens, 409 rate.
 
+### Q39. How does the fleet filter work, and what does "low fuel" mean there?
+**One-liner:** One pure `matchesFilter(truck, filter)` used by both the list (hides rows) and the map (dims dots);
+"low fuel" is the TRUSTED fuel below the vehicle profile's threshold — the same rule as the low-fuel alert.
+
+**Detail:**
+- Status / fuel / region / route combine with AND; Clear resets.
+- The map dims instead of hiding: hiding would change the map's bounds and move every other truck.
+- Regions are 4 quadrants around the city center (the server has no regions) — a stated, arbitrary choice.
+- A truck with an unknown value doesn't match a filter on that field: we show only what we can confirm.
+- Filter state is local (per tab, `useState` in App): no other part of the app needs it.
+

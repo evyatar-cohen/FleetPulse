@@ -1,6 +1,7 @@
 // Fleet map as a simple SVG coordinate grid (D31): one dot per truck at its CURRENT position (newest accepted
 // reading), colored by status, plus its recent path line (live + late + GPS batch points — QUIRK #1: a batch fills
 // the path, it never adds 30 markers). Reads trucks through the 1 s throttled hook.
+// Trucks not matching the fleet filter are dimmed, not removed: removing them would rescale the map and move the rest.
 import type { ReactElement } from 'react';
 import { truckStatus, type TruckView } from '../../domain/fleet';
 import type { Location } from '../../domain/models';
@@ -8,6 +9,7 @@ import { useFleetStore } from '../../store/fleetStore';
 import { STATUS_COLORS } from '../format';
 import { createProjection, MAP_SIZE, type Projection } from '../mapProjection';
 import { selectTrucks, sortedTrucks } from '../selectors';
+import { matchesFilter, type TruckFilter } from '../truckFilter';
 import { useThrottledStore } from '../useThrottledStore';
 
 const GRID_LINES = 8;
@@ -67,7 +69,7 @@ function TruckMarker({ truck, projection, selected, onSelect }: TruckMarkerProps
   );
 }
 
-export function FleetMap({ onSelect }: { onSelect: (truckId: string) => void }): ReactElement {
+export function FleetMap({ onSelect, filter }: { onSelect: (truckId: string) => void; filter: TruckFilter }): ReactElement {
   const trucks = sortedTrucks(useThrottledStore(selectTrucks));
   const selectedTruckId = useFleetStore((state) => state.selectedTruckId);
   const projection = createProjection(allLocations(trucks));
@@ -78,16 +80,19 @@ export function FleetMap({ onSelect }: { onSelect: (truckId: string) => void }):
       <svg viewBox={`0 0 ${MAP_SIZE.width} ${MAP_SIZE.height}`} className="fleet-map" role="img" aria-label="Fleet map">
         <Grid />
         {trucks.map((truck) => (
-          <TruckPath key={`path-${truck.id}`} truck={truck} projection={projection} />
+          <g key={`path-${truck.id}`} className={matchesFilter(truck, filter) ? undefined : 'filtered-out'}>
+            <TruckPath truck={truck} projection={projection} />
+          </g>
         ))}
         {trucks.map((truck) => (
-          <TruckMarker
-            key={`marker-${truck.id}`}
-            truck={truck}
-            projection={projection}
-            selected={truck.id === selectedTruckId}
-            onSelect={onSelect}
-          />
+          <g key={`marker-${truck.id}`} className={matchesFilter(truck, filter) ? undefined : 'filtered-out'}>
+            <TruckMarker
+              truck={truck}
+              projection={projection}
+              selected={truck.id === selectedTruckId}
+              onSelect={onSelect}
+            />
+          </g>
         ))}
       </svg>
       <div className="legend">
