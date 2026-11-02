@@ -8,6 +8,7 @@ import { describe, expect, it } from 'vitest';
 import { TelemetryReadingSchema, type TelemetryReading } from '../../../src/domain/models';
 import { FUEL_CONFIRM_WINDOW_MS } from '../../../src/domain/telemetry/config';
 import { fuelDetector } from '../../../src/domain/telemetry/detectors/fuel';
+import { isLowFuel } from '../../../src/domain/telemetry/fuelAlert';
 import type { SensorState } from '../../../src/domain/telemetry/sensors';
 import { VEHICLE_PROFILES } from '../../../src/domain/vehicles';
 import fuelGlitchFixture from '../../../fixtures/sse/fuel_glitch_sequence.json';
@@ -111,6 +112,15 @@ describe('Fuel sensor — sudden jumps', () => {
 
   it('10c. review fix: a low-fuel truck dropping to 0 is still caught (8 → 0)', () => {
     expect(lastOf(evaluateSeries([8, 0]))).toMatchObject({ value: 8, status: 'unverified' });
+  });
+
+  it('10e. a REAL 0% (low truck runs dry and stays at 0) is accepted after the window — and shown as low fuel', () => {
+    const ticksToConfirm = FUEL_CONFIRM_WINDOW_MS / TICK_MS;
+    const states = evaluateSeries([8, ...Array<number>(ticksToConfirm + 1).fill(0)]);
+    // While checking, the last trusted value (8) is shown — already below the low-fuel threshold, so no alert is lost.
+    expect(states[1]).toMatchObject({ value: 8, status: 'unverified' });
+    expect(lastOf(states)).toMatchObject({ value: 0, status: 'ok', resolved: 'confirmed' });
+    expect(isLowFuel(lastOf(states), TRUCK)).toBe(true);
   });
 
   it('10d. review fix: an out-of-range reading mid-episode keeps the episode start (window not reset)', () => {
