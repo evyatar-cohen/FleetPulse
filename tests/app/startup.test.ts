@@ -125,6 +125,39 @@ describe('Startup order', () => {
   });
 });
 
+describe('Presence announce (server never lists who is already online)', () => {
+  it('another dispatcher joins → we re-send viewing_truck (empty = not viewing) so they can see us', async () => {
+    start();
+    await register();
+    socket().emitMessage({ type: 'dispatcher_joined', dispatcherId: 'dispatcher_bob', name: 'Bob', timestamp: 1, activeDispatchers: 2 });
+    app?.selectTruck('truck_4');
+    socket().emitMessage({ type: 'dispatcher_joined', dispatcherId: 'dispatcher_carol', name: 'Carol', timestamp: 2, activeDispatchers: 3 });
+    expect(socket().sentOfType('viewing_truck')).toEqual([
+      { type: 'viewing_truck', truckId: '' },
+      { type: 'viewing_truck', truckId: 'truck_4' },
+      { type: 'viewing_truck', truckId: 'truck_4' },
+    ]);
+  });
+
+  it('a joined message about OURSELVES does not trigger an announce', async () => {
+    start();
+    await register();
+    socket().emitMessage({ type: 'dispatcher_joined', dispatcherId: 'dispatcher_alice', name: 'Alice', timestamp: 1, activeDispatchers: 2 });
+    expect(socket().sentOfType('viewing_truck')).toEqual([]);
+  });
+
+  it('closing the detail panel is announced as "not viewing"', async () => {
+    start();
+    await register();
+    app?.selectTruck('truck_4');
+    app?.selectTruck(null);
+    expect(socket().sentOfType('viewing_truck')).toEqual([
+      { type: 'viewing_truck', truckId: 'truck_4' },
+      { type: 'viewing_truck', truckId: '' },
+    ]);
+  });
+});
+
 describe('Fleet refresh and degraded mode', () => {
   it('reloads the fleet every 30 s', async () => {
     start();

@@ -5,6 +5,8 @@
 // can't detect it (the stale leave is NEWER than the rejoin). So we count open connections per id: the server sends
 // exactly one joined and one left per socket → online while the count is > 0 (like reference counting).
 // Leaves about OURSELVES are ignored (our own ghost leave can arrive after we reconnect with the same id).
+// Who joined BEFORE us: the server never lists them, so every client answers a dispatcher_joined by re-sending its
+// viewing_truck (empty truckId = not viewing) — the newcomer learns about them from those dispatcher_viewing messages.
 // Pure functions: no I/O, no store, no React.
 import type { WsServerMessage } from './events';
 
@@ -52,7 +54,7 @@ export function applyPresenceMessage(presence: Presence, message: PresenceMessag
     // Our own (possibly ghost) leave: we're obviously still here.
     if (message.dispatcherId === myDispatcherId) return presence;
     const existing = presence[message.dispatcherId];
-    // A leave for someone we don't know (e.g. joined before we connected and never acted) — nothing to remove.
+    // A leave for someone we don't know (e.g. their announce never reached us) — nothing to remove.
     if (existing === undefined) return presence;
     const connections = existing.connections - 1;
     // QUIRK #6: still > 0 → this was a late (ghost) leave of an older connection; they are back online.
@@ -63,14 +65,16 @@ export function applyPresenceMessage(presence: Presence, message: PresenceMessag
   // dispatcher_viewing — the sender is evidently online. dispatcherId is null if they never registered.
   const dispatcherId = message.dispatcherId;
   if (dispatcherId === null || dispatcherId === myDispatcherId) return presence;
+  // Empty truckId = "online, not viewing a truck" (our announce convention, see transport/wsClient.ts).
+  const viewingTruckId = message.truckId === '' ? null : message.truckId;
   const existing = presence[dispatcherId];
-  if (existing !== undefined && existing.viewingTruckId === message.truckId) return presence;
+  if (existing !== undefined && existing.viewingTruckId === viewingTruckId) return presence;
   return withDispatcher(presence, {
     id: dispatcherId,
     name: existing?.name ?? null,
     // Someone we never saw join (they connected before us): count this connection so their leave removes them.
     connections: existing === undefined ? 1 : existing.connections,
-    viewingTruckId: message.truckId,
+    viewingTruckId,
   });
 }
 

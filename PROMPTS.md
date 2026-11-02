@@ -235,6 +235,10 @@ and never submit code I can't explain.
   list; a detail drawer with trusted-value sparklines, mileage, route details, alerts (send + list).
 - When I said Phase 5 was merged, the AI found the PR had never been created (the branch was only pushed) — after it
   had already deleted the local branch; it restored it from the commit (nothing lost) and based the next branch on it.
+- **Bug I found in the browser:** a second tab showed only itself, not the dispatcher in the first tab. The AI had
+  documented this as a known limitation ("server never sends an online list"); I didn't accept it as a limitation. We
+  agreed on a fix: clients answer `dispatcher_joined` by re-sending `viewing_truck` (empty truckId = "not viewing").
+  The AI also used the empty value to announce closing the detail panel, removing another documented limitation (D53).
 
 **My notes**
 - _(add your own notes here)_

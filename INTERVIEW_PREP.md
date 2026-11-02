@@ -426,7 +426,9 @@ OLD connection only brings the count from 2 to 1 and she stays online; her real 
 - Leaves about ourselves are ignored (we can get our own ghost after reconnecting with the same id); leaves for
   unknown ids change nothing (no negative counts).
 - Tested with the real captured sequence (Carol rejoined at +1 s, stale leave at +10 s).
-- Limitation: the server never lists who's already online, so someone who joined before us is invisible until they act.
+- The server never lists who's already online — we fix that by having everyone announce on `dispatcher_joined` (Q36).
+  Remaining edge: if someone online before us reconnects and their ghost leave arrives, they vanish until their next
+  announce, because we never counted their old connection.
 
 ### Q34. How does "who is viewing which truck" work?
 **One-liner:** Clicking a truck selects it (opens the detail panel) and sends `viewing_truck`; other dispatchers get
@@ -434,7 +436,8 @@ OLD connection only brings the count from 2 to 1 and she stays online; her real 
 
 **Detail:** one action (`selectTruck`) does both, so components never talk to the WebSocket. The WS client remembers
 only the latest viewed truck and re-sends it after a reconnect (state, not a queue). There's no "stopped viewing"
-message on this server, so a tag stays until the dispatcher views another truck or leaves.
+message on this server, so closing the panel sends `viewing_truck` with an empty truckId, which we read as
+"online, not viewing" — the tag disappears.
 
 ### Q35. What do the detail charts show, and how do you keep them from growing forever?
 **One-liner:** The last ~5 minutes (150 samples) of TRUSTED speed/fuel and engine temperature per truck — appended on
@@ -442,3 +445,15 @@ each accepted reading, oldest dropped — so they never show 999 km/h or a glitc
 
 **Detail:** late/batch readings add no sample; a missing trusted value breaks the line; small SVG sparklines, no
 library. Mileage isn't in SSE — it's loaded from `GET /api/fleet/:id` when the panel opens and every 30 s.
+
+
+### Q36. You open the app in a second tab. How does it know who was already online?
+**One-liner:** The server doesn't tell it — so every running client answers a `dispatcher_joined` by re-sending its
+`viewing_truck`; the newcomer receives those as `dispatcher_viewing` and adds each sender as online.
+
+**Detail:**
+- `dispatcher_joined` goes only to clients that were already connected, and there is no "list online" message.
+- Not viewing a truck → we send an empty truckId; our presence reducer reads it as "online, viewing nothing".
+- An unknown viewer is added with 1 connection, so their later `dispatcher_left` removes them correctly.
+- We don't re-send `register_dispatcher`: that would broadcast a second joined and break the connection count.
+- Weakness: earlier dispatchers have no name (that message carries none) → shown by id. Proper fix: a server snapshot.

@@ -41,7 +41,7 @@ export function Header(): ReactElement {
         </span>
         <ConnectionBadge title="Telemetry" status={sseStatus} />
         <ConnectionBadge title="Dispatch" status={wsStatus} />
-        <span className="online" title="Other dispatchers online (the server doesn't list those who joined before you)">
+        <span className="online" title="Other dispatchers online">
           👥 Online: You{others.length > 0 ? `, ${others.join(', ')}` : ''}
         </span>
       </div>

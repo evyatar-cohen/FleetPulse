@@ -98,6 +98,18 @@ describe('Presence — who is viewing which truck', () => {
     expect(apply(viewing(null, 'truck_1'), viewing(ME, 'truck_1'))).toEqual({});
   });
 
+  it('announce with an empty truckId (someone online before us) → listed online, viewing nothing', () => {
+    const presence = apply(viewing('early', ''));
+    expect(presence['early']).toEqual({ id: 'early', name: null, connections: 1, viewingTruckId: null });
+    expect(apply(viewing('early', ''), left('early'))).toEqual({});
+  });
+
+  it('empty truckId after viewing a truck → they closed the panel: their viewer tag disappears', () => {
+    const presence = apply(joined('bob', 'Bob'), viewing('bob', 'truck_3'), viewing('bob', ''));
+    expect(viewersOf(presence, 'truck_3')).toEqual([]);
+    expect(presence['bob']?.connections).toBe(1);
+  });
+
   it('a leave clears what they were viewing', () => {
     const presence = apply(joined('bob', 'Bob'), viewing('bob', 'truck_3'), left('bob'));
     expect(viewersOf(presence, 'truck_3')).toEqual([]);

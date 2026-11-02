@@ -120,6 +120,10 @@ export function startApp(dispatcherName: string, deps: AppDependencies, store: S
     } else if (isPresenceMessage(message)) {
       // QUIRK #6: ghost-safe presence (connection counting) — see domain/presence.ts.
       store.getState().applyPresenceMessage(message);
+      // A newcomer gets no list of who's online — announce ourselves so they can see us.
+      if (message.type === 'dispatcher_joined' && message.dispatcherId !== ws.id) {
+        ws.announcePresence();
+      }
     } else if (message.type === 'truck_alert') {
       store.getState().applyAlert(message.alert);
     }
@@ -152,8 +156,8 @@ export function startApp(dispatcherName: string, deps: AppDependencies, store: S
     truckActions: createTruckActions(rest),
     selectTruck: (truckId) => {
       store.getState().selectTruck(truckId);
-      // The server has no "stopped viewing" message — deselecting just isn't announced.
-      if (truckId !== null) ws.setViewingTruck(truckId);
+      // null (panel closed) is sent as "not viewing" so our viewer tag disappears for the others.
+      ws.setViewingTruck(truckId);
     },
     ws,
     stop: () => {

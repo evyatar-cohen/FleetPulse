@@ -496,15 +496,17 @@ Feeds the README and interview prep.
 - **Alternatives:** compare timestamps (fails: the ghost leave is NEWER than the rejoin); ignore leaves for 10 s after a
   join (a magic number tied to this server's delay).
 - **Why:** the server sends exactly one joined and one left per socket, so counting is exact — like reference counting.
-- **Limitation:** someone who joined BEFORE us and never acted is invisible until they act (the server never sends a
-  list of who's online). If such a person reconnects (joined → 1) and their ghost leave arrives (→ 0), they briefly
-  disappear until their next action. Real fix: a "who's online" snapshot from the server.
+- **Limitation (fixed by D53):** the server never sends a list of who's online, so at first someone who joined BEFORE
+  us was invisible until they acted. D53 makes everyone announce themselves when a newcomer joins.
+- **Remaining edge:** if someone online before us reconnects (joined → 1) and their ghost leave of the OLD socket
+  arrives (→ 0), they briefly disappear until their next announce/action (we never counted their old connection).
+  Real fix: a "who's online" snapshot from the server.
 
 ### D51. One "select truck" action drives the detail panel AND presence
 - **Decision:** clicking a truck (list row or map marker) calls `RunningApp.selectTruck`: stores `selectedTruckId`
   (opens the detail drawer) and sends `viewing_truck` over the WS. Other dispatchers see "👁 <name>" on that truck and
-  in its detail panel. Deselecting (closing the panel) isn't announced — the server has no "stopped viewing" message,
-  so a viewer tag stays until that dispatcher views another truck or leaves.
+  in its detail panel. Deselecting (closing the panel) sends `viewing_truck` with an empty truckId ("not viewing",
+  see D53), so the viewer tag disappears for the others.
 - **Why:** one user intent, one place that performs both effects; components don't talk to the WS directly.
 
 ### D52. Detail panel: trusted-value charts, mileage on demand, alerts
@@ -518,3 +520,18 @@ Feeds the README and interview prep.
   (POST is not idempotent — a lost answer must not send the alert twice). Alerts arrive back via the WS `truck_alert`
   broadcast (kept, bounded to 50, de-duplicated by id) and are listed in the truck's panel.
 - **Alternatives:** a chart library (recharts — new dependency for 3 sparklines); polling mileage for all trucks.
+
+
+### D53. Late joiners see who's already online: everyone announces on `dispatcher_joined`
+- **Problem (found in the browser):** a tab opened later showed only itself. The server sends `dispatcher_joined` only
+  to the OTHER clients and has no "who's online" message, so a newcomer never hears about earlier dispatchers.
+- **Decision:** when we receive `dispatcher_joined` for someone else, we re-send our `viewing_truck` (`WsClient.announcePresence()`).
+  The server forwards it to everyone as `dispatcher_viewing`, and the newcomer adds us (D50: an unknown viewer counts
+  as 1 connection). Not viewing a truck → we send an empty truckId, which `domain/presence.ts` reads as
+  "online, viewingTruckId null". The same empty value is sent when the detail panel closes (D51).
+- **Alternatives:** poll/refetch a list (no such endpoint); send `register_dispatcher` again (would broadcast a second
+  `dispatcher_joined` and break connection counting); a new message type (server ignores unknown types).
+- **Trade-off:** names of earlier dispatchers are unknown (`dispatcher_viewing` has no name) → shown by id until they
+  rejoin. With N dispatchers, each join causes N−1 small messages — fine at dispatcher-team scale. Uses a
+  convention (empty truckId) that only our client understands; an older client would show "viewing ''" (no such truck,
+  so no tag appears).
