@@ -3,8 +3,10 @@
 // Then: fleet refresh every 30 s (retry + circuit breaker → "stale" flag), reload on `fleet_reset` and after an
 // SSE reconnect (missed data can't be replayed). stop() cleans up everything.
 import type { WsServerMessage } from '../domain/events';
+import { isPresenceMessage } from '../domain/presence';
 import { isRouteMessage } from '../domain/routes';
 import { createRouteActions, type RouteActions } from './routeActions';
+import { createTruckActions, type TruckActions } from './truckActions';
 import type { FleetState } from '../store/fleetStore';
 import { CircuitBreaker } from '../transport/circuitBreaker';
 import type { ConnectionStatus } from '../transport/connection';
@@ -30,10 +32,13 @@ export interface StoreAccess {
 }
 
 export interface RunningApp {
-  // Used by UI actions (alerts) in later phases.
   rest: RestClient;
   // Create / update / reassign routes (Phase 5).
   routeActions: RouteActions;
+  // Detail panel: truck detail (mileage) and sending alerts (Phase 7).
+  truckActions: TruckActions;
+  // Select a truck (detail panel) and tell other dispatchers we're viewing it (presence). null = deselect.
+  selectTruck: (truckId: string | null) => void;
   ws: WsClient;
   stop: () => void;
 }
@@ -112,8 +117,12 @@ export function startApp(dispatcherName: string, deps: AppDependencies, store: S
     }
     if (isRouteMessage(message)) {
       store.getState().applyRouteMessage(message);
+    } else if (isPresenceMessage(message)) {
+      // QUIRK #6: ghost-safe presence (connection counting) — see domain/presence.ts.
+      store.getState().applyPresenceMessage(message);
+    } else if (message.type === 'truck_alert') {
+      store.getState().applyAlert(message.alert);
     }
-    // Presence messages are handled in Phase 6.
   }
 
   const ws = new WsClient({
@@ -140,6 +149,12 @@ export function startApp(dispatcherName: string, deps: AppDependencies, store: S
   return {
     rest,
     routeActions: createRouteActions(rest, store),
+    truckActions: createTruckActions(rest),
+    selectTruck: (truckId) => {
+      store.getState().selectTruck(truckId);
+      // The server has no "stopped viewing" message — deselecting just isn't announced.
+      if (truckId !== null) ws.setViewingTruck(truckId);
+    },
     ws,
     stop: () => {
       stopped = true;

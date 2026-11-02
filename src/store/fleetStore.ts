@@ -1,10 +1,13 @@
-// The single app store (Zustand): trucks, routes, connection status, data freshness, and who we are.
+// The single app store (Zustand): trucks, routes, audit log, presence, alerts, connection status, data freshness,
+// selection and who we are.
 // Data flow: transport callbacks → store actions (thin: call a pure domain function, save the result) → React
 // components read slices with selectors and redraw only when their slice changes.
 import { create } from 'zustand';
 import type { SseEvent } from '../domain/events';
 import { applyFleetSnapshot, applyRouteMessageToTrucks, applyTelemetryEvent, type Trucks } from '../domain/fleet';
-import type { Route } from '../domain/models';
+import type { Alert, Route } from '../domain/models';
+import { addAlert } from '../domain/alerts';
+import { applyPresenceMessage, rememberName, type Presence, type PresenceMessage } from '../domain/presence';
 import { applyRouteMessage, applyRoutesSnapshot, type RouteMessage, type Routes } from '../domain/routes';
 import {
   addAuditEntries,
@@ -20,6 +23,13 @@ export interface FleetState {
   routes: Routes;
   // Route change history (newest last), built client-side — the server has no audit endpoint.
   auditLog: AuditLog;
+  // Other dispatchers online (ghost-safe, QUIRK #6) and every name we've seen (kept after they leave).
+  presence: Presence;
+  dispatcherNames: Readonly<Record<string, string>>;
+  // Alerts sent to trucks by any dispatcher (newest last, bounded).
+  alerts: readonly Alert[];
+  // The truck this dispatcher selected (detail panel; announced to others via viewing_truck).
+  selectedTruckId: string | null;
   // Latest server timestamp seen on SSE (gps_batch events have none of their own).
   serverTime: number | null;
   // When the fleet snapshot was last loaded successfully, and whether it is stale (circuit breaker open / failing).
@@ -33,6 +43,9 @@ export interface FleetState {
   applyFleetResponse: (response: FleetResponse) => void;
   applySseEvent: (event: SseEvent) => void;
   applyRoutesResponse: (routes: readonly Route[]) => void;
+  applyPresenceMessage: (message: PresenceMessage) => void;
+  applyAlert: (alert: Alert) => void;
+  selectTruck: (truckId: string | null) => void;
   applyRouteMessage: (message: RouteMessage) => void;
   setFleetStale: (stale: boolean) => void;
   setSseStatus: (status: ConnectionStatus) => void;
@@ -45,6 +58,10 @@ const INITIAL_DATA = {
   trucks: {},
   routes: {},
   auditLog: [],
+  presence: {},
+  dispatcherNames: {},
+  alerts: [],
+  selectedTruckId: null,
   serverTime: null,
   fleetFetchedAt: null,
   fleetStale: false,
@@ -96,10 +113,30 @@ export const useFleetStore = create<FleetState>()((set, get) => ({
     });
   },
 
+  applyPresenceMessage: (message) => {
+    const state = get();
+    const presence = applyPresenceMessage(state.presence, message, state.dispatcherId);
+    const dispatcherNames = rememberName(state.dispatcherNames, message);
+    if (presence !== state.presence || dispatcherNames !== state.dispatcherNames) {
+      set({ presence, dispatcherNames });
+    }
+  },
+
+  applyAlert: (alert) => {
+    const alerts = addAlert(get().alerts, alert);
+    if (alerts !== get().alerts) set({ alerts });
+  },
+
+  selectTruck: (truckId) => set({ selectedTruckId: truckId }),
+
   setFleetStale: (stale) => set({ fleetStale: stale }),
   setSseStatus: (status) => set({ sseStatus: status }),
   setWsStatus: (status) => set({ wsStatus: status }),
-  setDispatcher: (id, name) => set({ dispatcherId: id, dispatcherName: name }),
+  setDispatcher: (id, name) => {
+    const names = get().dispatcherNames;
+    const dispatcherNames = id === null || names[id] === name ? names : { ...names, [id]: name };
+    set({ dispatcherId: id, dispatcherName: name, dispatcherNames });
+  },
 
   // fleet_reset (WS): the server re-created all trucks and deleted all routes — drop local data; snapshots reload next.
   resetFleet: () => set({ trucks: {}, routes: {}, auditLog: [], serverTime: null, fleetFetchedAt: null }),

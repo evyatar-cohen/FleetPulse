@@ -3,7 +3,7 @@
 // returned state. Pure functions: no I/O, no clock — "now" and the vehicle profile are passed in by the caller.
 import type { TelemetryReading } from '../models';
 import type { VehicleProfile } from '../vehicles';
-import { MAX_FUTURE_SKEW_MS } from './config';
+import { MAX_FUTURE_SKEW_MS, MAX_HISTORY_SAMPLES } from './config';
 import { addToPath, isPlausiblePathPoint, type PathPoint } from './path';
 import { evaluateSensors, type SensorStates } from './sensors';
 
@@ -14,6 +14,22 @@ export interface TruckTelemetry {
   path: readonly PathPoint[];
   // Trusted sensor values + status per detector ('speed', …) — what the dispatcher sees instead of raw values.
   sensors: SensorStates;
+  // Recent TRUSTED values for the detail charts (never 999 km/h or a glitch 0%), oldest first, bounded.
+  history: readonly SensorSample[];
+}
+
+export interface SensorSample {
+  timestamp: number;
+  // null = no trusted value at that moment.
+  speed: number | null;
+  fuel: number | null;
+  // No detector for engine temperature yet — the reading's value.
+  engineTemp: number;
+}
+
+function appendSample(history: readonly SensorSample[], sample: SensorSample): readonly SensorSample[] {
+  const next = [...history, sample];
+  return next.length > MAX_HISTORY_SAMPLES ? next.slice(next.length - MAX_HISTORY_SAMPLES) : next;
 }
 
 export interface IngestContext {
@@ -68,11 +84,19 @@ export function ingestReading(
   if (outcome === 'accepted') {
     const previousPath = state === undefined ? [] : state.path;
     const previousSensors = state === undefined ? undefined : state.sensors;
+    const sensors = evaluateSensors(previousSensors, reading, context.profile);
+    const sample: SensorSample = {
+      timestamp: reading.timestamp,
+      speed: sensors['speed']?.value ?? null,
+      fuel: sensors['fuel']?.value ?? null,
+      engineTemp: reading.engineTemp,
+    };
     return {
       state: {
         current: reading,
         path: addToPath(previousPath, toPathPoint(reading)),
-        sensors: evaluateSensors(previousSensors, reading, context.profile),
+        sensors,
+        history: appendSample(state === undefined ? [] : state.history, sample),
       },
       outcome,
     };

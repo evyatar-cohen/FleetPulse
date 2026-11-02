@@ -48,6 +48,7 @@ export function RoutesPanel({ actions }: { actions: RouteActions }): ReactElemen
   const trucks = useThrottledStore(selectTrucks);
   const auditLog = useFleetStore((state) => state.auditLog);
   const myId = useFleetStore((state) => state.dispatcherId);
+  const names = useFleetStore((state) => state.dispatcherNames);
 
   const [saving, setSaving] = useState<Readonly<Record<string, boolean>>>({});
   const [messages, setMessages] = useState<Readonly<Record<string, string>>>({});
@@ -96,14 +97,14 @@ export function RoutesPanel({ actions }: { actions: RouteActions }): ReactElemen
     if (clash !== null && clash.action.kind === 'reassigned') {
       setRouteMessage(
         raceWatch.routeId,
-        `⚠ ${dispatcherLabel(clash.by, myId)} also reassigned this route at the same time — it's now on ${truckLabel(
+        `⚠ ${dispatcherLabel(clash.by, myId, names)} also reassigned this route at the same time — it's now on ${truckLabel(
           routes[raceWatch.routeId]?.truckId ?? null,
           trucks,
         )}.`,
       );
       setRaceWatch(null);
     }
-  }, [auditLog, raceWatch, myId, routes, trucks]);
+  }, [auditLog, raceWatch, myId, names, routes, trucks]);
 
   useEffect(() => {
     if (raceWatch === null) return;
@@ -137,7 +138,7 @@ export function RoutesPanel({ actions }: { actions: RouteActions }): ReactElemen
               <td title={route.notes}>{route.destination}</td>
               <td>{route.priority}</td>
               <td>{route.status}</td>
-              <td>{dispatcherLabel(route.assignedBy, myId)}</td>
+              <td>{dispatcherLabel(route.assignedBy, myId, names)}</td>
               <td className="route-actions">
                 {saving[route.id] === true ? (
                   <span>⏳ saving…</span>

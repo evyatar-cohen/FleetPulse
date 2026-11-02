@@ -3,11 +3,15 @@ import type { AuditAction, FieldChange } from '../domain/auditLog';
 import type { Trucks } from '../domain/fleet';
 import type { RouteStatus } from '../domain/models';
 
-// Until presence (Phase 6) gives names, show "You" for us and the dispatcher id for others.
-export function dispatcherLabel(dispatcherId: string | null, myDispatcherId: string | null): string {
+// "You" for us; otherwise the dispatcher's name (from presence — kept after they leave), falling back to the id.
+export function dispatcherLabel(
+  dispatcherId: string | null,
+  myDispatcherId: string | null,
+  names: Readonly<Record<string, string>> = {},
+): string {
   if (dispatcherId === null) return 'another dispatcher';
   if (dispatcherId === myDispatcherId) return 'You';
-  return dispatcherId;
+  return names[dispatcherId] ?? dispatcherId;
 }
 
 export function truckLabel(truckId: string | null, trucks: Trucks): string {

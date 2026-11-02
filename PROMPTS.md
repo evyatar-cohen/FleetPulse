@@ -217,3 +217,24 @@ and never submit code I can't explain.
 
 **My notes**
 - _(add your own notes here)_
+
+---
+
+## Phase 6 + 7 — Presence and vehicle detail panel
+
+**How I worked with the AI this phase**
+- Asked to verify the remaining required features against the brief. The AI's audit found missing items: a low-fuel
+  alert (the brief's "don't trigger false low-fuel alerts" implies one), presence, the presence/ghost test, the detail
+  panel, and the README. I asked to add the low-fuel alert first and to verify it with tests, since the server's fuel
+  takes hours to get low.
+- Asked for the dashboard to fit one screen (map and trucks smaller, routes beside them).
+- Phase 6 and 7 were built together (both start from "click a truck") while I let the AI work autonomously.
+
+**What the AI produced**
+- Ghost-safe presence (connection counting per id), names instead of ids everywhere, "who is viewing" tags, an online
+  list; a detail drawer with trusted-value sparklines, mileage, route details, alerts (send + list).
+- When I said Phase 5 was merged, the AI found the PR had never been created (the branch was only pushed) — after it
+  had already deleted the local branch; it restored it from the commit (nothing lost) and based the next branch on it.
+
+**My notes**
+- _(add your own notes here)_

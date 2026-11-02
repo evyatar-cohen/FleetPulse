@@ -483,3 +483,38 @@ Feeds the README and interview prep.
   alerted after the 6 s window. Threshold per vehicle type (tank size).
 - **Verification:** the mock server's real fuel takes hours to get low and never goes below 5% — the behavior is
   verified with tests driven through the real fuel detector (incl. the captured glitch sequence), not in the browser.
+
+---
+
+## Phase 6 + 7 — Presence and vehicle detail panel
+
+### D50. Presence by counting connections per dispatcher id (QUIRK #6 ghost)
+- **Decision:** pure `domain/presence.ts`. `dispatcher_joined` → connections + 1; `dispatcher_left` → − 1; online while
+  > 0. Leaves about ourselves are ignored; a leave for an unknown id changes nothing (no negative counts);
+  `dispatcher_viewing` from an unknown id adds them with 1 connection (they joined before us). Names are remembered
+  after a dispatcher leaves (routes/history still mention them).
+- **Alternatives:** compare timestamps (fails: the ghost leave is NEWER than the rejoin); ignore leaves for 10 s after a
+  join (a magic number tied to this server's delay).
+- **Why:** the server sends exactly one joined and one left per socket, so counting is exact — like reference counting.
+- **Limitation:** someone who joined BEFORE us and never acted is invisible until they act (the server never sends a
+  list of who's online). If such a person reconnects (joined → 1) and their ghost leave arrives (→ 0), they briefly
+  disappear until their next action. Real fix: a "who's online" snapshot from the server.
+
+### D51. One "select truck" action drives the detail panel AND presence
+- **Decision:** clicking a truck (list row or map marker) calls `RunningApp.selectTruck`: stores `selectedTruckId`
+  (opens the detail drawer) and sends `viewing_truck` over the WS. Other dispatchers see "👁 <name>" on that truck and
+  in its detail panel. Deselecting (closing the panel) isn't announced — the server has no "stopped viewing" message,
+  so a viewer tag stays until that dispatcher views another truck or leaves.
+- **Why:** one user intent, one place that performs both effects; components don't talk to the WS directly.
+
+### D52. Detail panel: trusted-value charts, mileage on demand, alerts
+- **Charts:** each accepted reading appends a sample of TRUSTED values (speed/fuel from the detectors, raw engine
+  temperature) to a per-truck history capped at 150 samples (~5 min) — so charts never show 999 km/h or a glitch 0%.
+  Drawn as small SVG sparklines (no chart library); a missing trusted value breaks the line instead of inventing data;
+  fuel uses a fixed 0–100 scale.
+- **Mileage:** only in `GET /api/fleet/:id` → loaded when the panel opens and every 30 s while open (a read → retried);
+  answers arriving after the panel switched truck are ignored.
+- **Alerts:** message 3–200 chars (trimmed), severity info/warning/critical; critical needs confirmation. ONE request
+  (POST is not idempotent — a lost answer must not send the alert twice). Alerts arrive back via the WS `truck_alert`
+  broadcast (kept, bounded to 50, de-duplicated by id) and are listed in the truck's panel.
+- **Alternatives:** a chart library (recharts — new dependency for 3 sparklines); polling mileage for all trucks.

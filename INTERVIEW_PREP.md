@@ -411,3 +411,34 @@ glitch; a real 0% that holds is confirmed after 6 s and alerted.
 - Unverified sudden rise (10% → 80%): the trusted value stays 10% until confirmed → the alert stays on (safe side).
 - Out-of-range readings (-5%) are sensor faults → trusted value kept.
 - Tested end to end through the real detector (the server's fuel takes hours to get low, never below 5%).
+
+---
+
+## Phase 6 + 7 — Presence and detail panel
+
+### Q33. A `dispatcher_left` arrives for Carol while she's connected again (ghost). How does the UI handle it?
+**One-liner:** We count connections per dispatcher id — joined +1, left −1, online while > 0 — so the late leave of her
+OLD connection only brings the count from 2 to 1 and she stays online; her real leave later brings it to 0.
+
+**Detail:**
+- Timestamps can't detect it: the ghost leave is newer than the rejoin.
+- The server sends exactly one joined and one left per socket, so the count is exact.
+- Leaves about ourselves are ignored (we can get our own ghost after reconnecting with the same id); leaves for
+  unknown ids change nothing (no negative counts).
+- Tested with the real captured sequence (Carol rejoined at +1 s, stale leave at +10 s).
+- Limitation: the server never lists who's already online, so someone who joined before us is invisible until they act.
+
+### Q34. How does "who is viewing which truck" work?
+**One-liner:** Clicking a truck selects it (opens the detail panel) and sends `viewing_truck`; other dispatchers get
+`dispatcher_viewing` and show "👁 <name>" on that truck.
+
+**Detail:** one action (`selectTruck`) does both, so components never talk to the WebSocket. The WS client remembers
+only the latest viewed truck and re-sends it after a reconnect (state, not a queue). There's no "stopped viewing"
+message on this server, so a tag stays until the dispatcher views another truck or leaves.
+
+### Q35. What do the detail charts show, and how do you keep them from growing forever?
+**One-liner:** The last ~5 minutes (150 samples) of TRUSTED speed/fuel and engine temperature per truck — appended on
+each accepted reading, oldest dropped — so they never show 999 km/h or a glitch 0%, and memory stays fixed.
+
+**Detail:** late/batch readings add no sample; a missing trusted value breaks the line; small SVG sparklines, no
+library. Mileage isn't in SSE — it's loaded from `GET /api/fleet/:id` when the panel opens and every 30 s.

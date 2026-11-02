@@ -1,7 +1,7 @@
 // Root UI component: asks the dispatcher's name once, then starts the app (connections + store wiring) and shows the
 // dashboard. Each area is wrapped in an error boundary so one crashing panel doesn't blank the whole page.
 import { useEffect, useState, type ReactElement } from 'react';
-import type { RouteActions } from '../app/routeActions';
+import type { RunningApp } from '../app/startup';
 import { browserDependencies, loadDispatcherName, saveDispatcherName } from '../app/browserDependencies';
 import { startApp } from '../app/startup';
 import { useFleetStore } from '../store/fleetStore';
@@ -11,22 +11,29 @@ import { Header } from './components/Header';
 import { NameForm } from './components/NameForm';
 import { AuditLogPanel } from './components/routes/AuditLogPanel';
 import { RoutesPanel } from './components/routes/RoutesPanel';
+import { TruckDetailPanel } from './components/TruckDetailPanel';
 import { TruckList } from './components/TruckList';
 
 export function App(): ReactElement {
   const [dispatcherName, setDispatcherName] = useState<string | null>(() => loadDispatcherName());
-  const [routeActions, setRouteActions] = useState<RouteActions | null>(null);
+  // The running app's actions (routes, truck detail/alerts, selection) — null until started.
+  const [running, setRunning] = useState<RunningApp | null>(null);
+  const selectedTruckId = useFleetStore((state) => state.selectedTruckId);
 
   useEffect(() => {
     if (dispatcherName === null) return;
-    const running = startApp(dispatcherName, browserDependencies(), useFleetStore);
-    setRouteActions(running.routeActions);
+    const app = startApp(dispatcherName, browserDependencies(), useFleetStore);
+    setRunning(app);
     // Cleanup: close connections and timers (also makes React StrictMode's dev double-start safe).
     return () => {
-      running.stop();
-      setRouteActions(null);
+      app.stop();
+      setRunning(null);
     };
   }, [dispatcherName]);
+
+  function selectTruck(truckId: string | null): void {
+    running?.selectTruck(truckId);
+  }
 
   if (dispatcherName === null) {
     return (
@@ -48,17 +55,17 @@ export function App(): ReactElement {
       <div className="dashboard">
         <div className="area-map">
           <ErrorBoundary area="the map">
-            <FleetMap />
+            <FleetMap onSelect={selectTruck} />
           </ErrorBoundary>
         </div>
         <div className="area-trucks">
           <ErrorBoundary area="the truck list">
-            <TruckList />
+            <TruckList onSelect={selectTruck} />
           </ErrorBoundary>
         </div>
         <div className="area-routes">
           <ErrorBoundary area="the routes panel">
-            {routeActions === null ? <p className="muted">Starting…</p> : <RoutesPanel actions={routeActions} />}
+            {running === null ? <p className="muted">Starting…</p> : <RoutesPanel actions={running.routeActions} />}
           </ErrorBoundary>
         </div>
         <div className="area-history">
@@ -67,6 +74,11 @@ export function App(): ReactElement {
           </ErrorBoundary>
         </div>
       </div>
+      {running !== null && selectedTruckId !== null && (
+        <ErrorBoundary area="the truck details">
+          <TruckDetailPanel truckId={selectedTruckId} actions={running.truckActions} onClose={() => selectTruck(null)} />
+        </ErrorBoundary>
+      )}
     </main>
   );
 }

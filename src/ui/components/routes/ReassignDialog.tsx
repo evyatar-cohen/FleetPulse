@@ -29,6 +29,7 @@ export function ReassignDialog({ route, actions, onDone, onClose }: ReassignDial
   // Truck names/route ids only — read through the 1 s throttle so telemetry doesn't redraw this every 2 s.
   const trucks = useThrottledStore(selectTrucks);
   const myId = useFleetStore((state) => state.dispatcherId);
+  const names = useFleetStore((state) => state.dispatcherNames);
   // The version we based our decision on — fixed when the dialog opens.
   const [openedVersion] = useState(route._version);
   const [target, setTarget] = useState('');
@@ -77,7 +78,7 @@ export function ReassignDialog({ route, actions, onDone, onClose }: ReassignDial
       </select>
       {changedBy !== null && (
         <div className="banner banner-warn">
-          ⚠ {dispatcherLabel(changedBy.by, myId)}{' '}
+          ⚠ {dispatcherLabel(changedBy.by, myId, names)}{' '}
           {changedBy.change === null ? 'changed this route' : describeAuditAction(changedBy.change, trucks)} since you opened
           this dialog. Check it before continuing.
         </div>

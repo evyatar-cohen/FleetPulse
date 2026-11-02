@@ -12,6 +12,7 @@ export function AuditLogPanel(): ReactElement {
   // Truck names/route ids only — read through the 1 s throttle so telemetry doesn't redraw this every 2 s.
   const trucks = useThrottledStore(selectTrucks);
   const myId = useFleetStore((state) => state.dispatcherId);
+  const names = useFleetStore((state) => state.dispatcherNames);
   const newestFirst = [...auditLog].reverse();
 
   return (
@@ -23,7 +24,7 @@ export function AuditLogPanel(): ReactElement {
         <ul className="audit-log">
           {newestFirst.map((entry) => (
             <li key={entry.key}>
-              <span className="muted">{formatTime(entry.at)}</span> <strong>{dispatcherLabel(entry.by, myId)}</strong>{' '}
+              <span className="muted">{formatTime(entry.at)}</span> <strong>{dispatcherLabel(entry.by, myId, names)}</strong>{' '}
               {entry.routeId}: {describeAuditAction(entry.action, trucks)}
               {entry.source === 'snapshot' && <span className="muted"> (from snapshot)</span>}
             </li>

@@ -71,6 +71,8 @@ Grows as we go — each phase adds the new terms it introduces.
 - **Immutable update** — return a new object instead of changing the old one. React notices changes by
   comparing object identity, so mutating in place can leave the UI stale.
 
+- **Reference counting** — keep a count of open things (here: a dispatcher's connections); the thing is "gone"
+  only when the count reaches 0. How ghost leaves are handled.
 - **Registry** — a list/map the pipeline reads (vehicle profiles, sensor detectors). Adding a feature = adding an
   entry, not editing pipeline code (open/closed principle).
 
@@ -106,6 +108,8 @@ Grows as we go — each phase adds the new terms it introduces.
 - **StrictMode** — dev-only React wrapper that runs some code twice to reveal bugs (e.g. missing cleanup).
 - **Error boundary** — a React component that catches render errors in its children and shows a fallback
   instead of a blank page (must be a class component).
+- **Sparkline** — a small, simple line chart without axes, used in the detail panel.
+- **Drawer** — a panel that slides over the side of the page (the truck detail panel).
 - **SVG** — the browser's vector drawing format (`<circle>`, `<polyline>`); used for the map grid.
 - **Props** — the inputs a component receives (`<TruckRow truck={…} />`), like function arguments.
 - **`key`** — a stable id React needs on list items to track them between redraws.

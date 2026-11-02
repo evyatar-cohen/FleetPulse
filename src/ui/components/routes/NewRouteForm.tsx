@@ -15,6 +15,7 @@ export function NewRouteForm({ actions }: { actions: RouteActions }): ReactEleme
   // Truck names/route ids only — read through the 1 s throttle so telemetry doesn't redraw this every 2 s.
   const trucks = useThrottledStore(selectTrucks);
   const myId = useFleetStore((state) => state.dispatcherId);
+  const names = useFleetStore((state) => state.dispatcherNames);
   const [truckId, setTruckId] = useState('');
   const [destination, setDestination] = useState('');
   const [priority, setPriority] = useState<RoutePriority>('normal');
@@ -43,7 +44,7 @@ export function NewRouteForm({ actions }: { actions: RouteActions }): ReactEleme
       setMessage(
         outcome.byMe
           ? `This truck already has your route ${outcome.routeId} (perhaps your earlier attempt went through).`
-          : `This truck was just given route ${outcome.routeId} by ${dispatcherLabel(outcome.by, myId)}.`,
+          : `This truck was just given route ${outcome.routeId} by ${dispatcherLabel(outcome.by, myId, names)}.`,
       );
     } else if (outcome.kind === 'error') {
       setMessage(outcome.retryable ? `${outcome.message} Check the routes list before trying again.` : outcome.message);
