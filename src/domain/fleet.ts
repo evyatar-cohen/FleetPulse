@@ -3,6 +3,7 @@
 // Pure functions: no I/O, no store, no React.
 import type { SseEvent } from './events';
 import type { FleetTruck, TelemetryReading, TruckStatus } from './models';
+import { isFinished, type RouteMessage } from './routes';
 import { ingestBatch, ingestReading, type IngestContext, type TruckTelemetry } from './telemetry/truckTelemetry';
 import { DEFAULT_VEHICLE_TYPE, getVehicleProfile } from './vehicles';
 
@@ -115,4 +116,28 @@ function updateTelemetry(
   const updated = withTelemetry(truck, update(truck.telemetry, { now, profile }));
   if (updated === trucks[truckId]) return trucks;
   return { ...trucks, [truckId]: updated };
+}
+
+function withRouteId(trucks: Trucks, truckId: string | undefined, routeId: string | null): Trucks {
+  if (truckId === undefined) return trucks;
+  const truck = trucks[truckId];
+  if (truck === undefined || truck.currentRouteId === routeId) return trucks;
+  return { ...trucks, [truckId]: { ...truck, currentRouteId: routeId } };
+}
+
+// Keeps each truck's `currentRouteId` in step with a route event (mirrors what server.js does to its trucks):
+// assigned → set on the truck; completed/cancelled → cleared; reassigned → moved from the old truck to the new one.
+export function applyRouteMessageToTrucks(trucks: Trucks, message: RouteMessage): Trucks {
+  const route = message.route;
+  if (message.type === 'route_assigned') {
+    return withRouteId(trucks, route.truckId, route.id);
+  }
+  if (message.type === 'route_reassigned') {
+    const cleared = withRouteId(trucks, message.oldTruckId, null);
+    return withRouteId(cleared, message.newTruckId, route.id);
+  }
+  if (isFinished(route)) {
+    return withRouteId(trucks, route.truckId, null);
+  }
+  return trucks;
 }

@@ -26,9 +26,13 @@ export function formatSpeed(sensor: SensorState | undefined): SensorDisplay {
   return formatSensor(sensor, 'km/h', 0);
 }
 
-export function formatFuel(sensor: SensorState | undefined): SensorDisplay {
-  return formatSensor(sensor, '%', 0);
+// `lowFuel` comes from isLowFuel() (trusted value vs. the vehicle profile). A low-fuel warning outranks other flags.
+export function formatFuel(sensor: SensorState | undefined, lowFuel: boolean = false): SensorDisplay {
+  const display = formatSensor(sensor, '%', 0);
+  return lowFuel ? { text: display.text, flag: LOW_FUEL_FLAG } : display;
 }
+
+export const LOW_FUEL_FLAG: string = '⛽ low fuel';
 
 // "updated 4 s ago". Compares the reading's timestamp (server clock) with the browser clock — on one machine they
 // match; with real clock skew the age would be off by the skew.

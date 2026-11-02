@@ -8,11 +8,13 @@ export interface VehicleProfile {
   // Faster fuel change (either direction, in % points per second) is physically impossible → suspect a glitch.
   // Real consumption is ~0.01 pts/s; refueling ~1 pt/s. Limitation: below ~3% a drop to 0 fits the allowance.
   maxFuelChangePerSecond: number;
+  // Below this (trusted) fuel level, warn the dispatcher (% of tank).
+  lowFuelPercent: number;
 }
 
 export const VEHICLE_PROFILES = {
   // Heavy delivery trucks top out around 120–150 km/h; margin for real fast driving.
-  truck: { maxSpeedKmh: 160, maxFuelChangePerSecond: 1.5 },
+  truck: { maxSpeedKmh: 160, maxFuelChangePerSecond: 1.5, lowFuelPercent: 15 },
 } satisfies Record<string, VehicleProfile>;
 
 export type VehicleType = keyof typeof VEHICLE_PROFILES;

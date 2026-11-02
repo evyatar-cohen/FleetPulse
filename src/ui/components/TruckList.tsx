@@ -2,16 +2,19 @@
 // Reads trucks through the 1 s throttled hook (live data changes every 2 s plus bursts).
 import type { ReactElement } from 'react';
 import { truckStatus, type TruckView } from '../../domain/fleet';
-import { formatAge, formatFuel, formatSpeed, STATUS_COLORS, type SensorDisplay } from '../format';
+import { isLowFuel } from '../../domain/telemetry/fuelAlert';
+import { getVehicleProfile } from '../../domain/vehicles';
+import { formatAge, formatFuel, formatSpeed, LOW_FUEL_FLAG, STATUS_COLORS, type SensorDisplay } from '../format';
 import { selectTrucks, sortedTrucks } from '../selectors';
 import { useNow } from '../useNow';
 import { useThrottledStore } from '../useThrottledStore';
 
 function SensorCell({ display }: { display: SensorDisplay }): ReactElement {
+  const flagClass = display.flag === LOW_FUEL_FLAG ? 'sensor-flag low-fuel' : 'sensor-flag';
   return (
     <td title={display.flag ?? undefined}>
       {display.text}
-      {display.flag !== null && <span className="sensor-flag"> {display.flag}</span>}
+      {display.flag !== null && <span className={flagClass}> {display.flag}</span>}
     </td>
   );
 }
@@ -19,6 +22,7 @@ function SensorCell({ display }: { display: SensorDisplay }): ReactElement {
 function TruckRow({ truck, now }: { truck: TruckView; now: number }): ReactElement {
   const status = truckStatus(truck);
   const telemetry = truck.telemetry;
+  const fuel = telemetry?.sensors['fuel'];
   return (
     <tr>
       <td>
@@ -27,7 +31,7 @@ function TruckRow({ truck, now }: { truck: TruckView; now: number }): ReactEleme
       </td>
       <td>{status}</td>
       <SensorCell display={formatSpeed(telemetry?.sensors['speed'])} />
-      <SensorCell display={formatFuel(telemetry?.sensors['fuel'])} />
+      <SensorCell display={formatFuel(fuel, isLowFuel(fuel, getVehicleProfile(truck.vehicleType)))} />
       <td className="muted">{formatAge(telemetry?.current.timestamp, now)}</td>
     </tr>
   );

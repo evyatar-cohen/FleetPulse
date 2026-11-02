@@ -10,6 +10,7 @@ import type { FetchFn } from '../../src/transport/restClient';
 import { FakeEventSource, FakeWebSocket, jsonResponse, memoryIdStore, SSE_CLOSED } from '../helpers/fakes';
 import fleetFixture from '../../fixtures/rest/fleet_200.json';
 import busyFixture from '../../fixtures/rest/fleet_503.json';
+import routesFixture from '../../fixtures/rest/routes.json';
 
 let sockets: FakeWebSocket[];
 let sources: FakeEventSource[];
@@ -22,6 +23,9 @@ const fetch: FetchFn = async (url, init) => {
   if (url === '/api/fleet') {
     fleetRequests.push(init);
     return fleetQueue.shift() ?? jsonResponse(200, fleetFixture.body);
+  }
+  if (url === '/api/routes') {
+    return jsonResponse(200, routesFixture.body);
   }
   return jsonResponse(404, { error: 'not used in this test' });
 };
@@ -103,6 +107,21 @@ describe('Startup order', () => {
     expect(Object.keys(state.trucks)).toHaveLength(12);
     expect(state.dispatcherId).toBe('dispatcher_alice');
     expect(sources).toHaveLength(1);
+  });
+
+  it('after `registered`: routes loaded; WS route events reach the store', async () => {
+    start();
+    await register();
+    expect(Object.keys(useFleetStore.getState().routes)).toHaveLength(routesFixture.body.routes.length);
+    socket().emitMessage({
+      type: 'route_assigned',
+      route: { ...routesFixture.body.routes[0], id: 'route_new', _version: 1 },
+      truckId: 'truck_2',
+      assignedBy: 'dispatcher_bob',
+      truckVersion: 5,
+      timestamp: Date.now(),
+    });
+    expect(useFleetStore.getState().routes['route_new']).toBeDefined();
   });
 });
 

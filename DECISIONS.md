@@ -368,3 +368,118 @@ Feeds the README and interview prep.
 - **Why:** the same "physically impossible" rule as the speed detector — generic, not batch-specific; found by a
   real-data test that failed on the first version (the few-ms-newer batch reading).
 - **Trade-off:** a genuinely fast real movement between two late points would be hidden from the path (never the marker).
+
+---
+
+## Phase 5 — Routes
+
+### D39. Routes live in the same store; WS route events applied by version
+- **Decision:** `routes` is a new part of the single Zustand store; logic in pure `domain/routes.ts`. Sources:
+  `GET /api/routes` at startup and the WS events `route_assigned` / `route_updated` / `route_reassigned` (the server
+  broadcasts them to everyone, including the dispatcher who made the change). An event is applied only if its
+  `route._version` is newer than what we have (old/duplicate events never overwrite newer data). The same action
+  updates the trucks' `currentRouteId` (assign → set; complete/cancel → clear; reassign → move). `fleet_reset`
+  clears routes too.
+- **Alternatives:** a separate routes store (a reassign touches routes and trucks → two stores could briefly disagree).
+- **Why:** one action updates everything a route event affects, atomically.
+
+### D40. Client-side audit log, seeded from the routes snapshot
+- **Decision:** the server has no audit endpoint, so we build the log from WS route events (who, what, when, route
+  version), keeping the last 200 entries. At startup it is seeded from `GET /api/routes`: each route's
+  `assignedBy/At`, `reassignedBy/At`, `lastModifiedBy/At` become entries marked "from snapshot". Entries are keyed by
+  route + kind + the server's timestamp of that change, so a reloaded snapshot or a live event describing the same
+  change never creates a duplicate.
+- **Alternatives:** start empty at page load (simpler; a dispatcher opening the page sees no history).
+- **Why:** the dispatcher sees the existing history right away (user's choice).
+- **Limitation:** from the snapshot we only know the LATEST change of each kind per route (and not the previous
+  value) — intermediate changes before the tab opened are lost. A real system would have a server-side audit log.
+
+### D41. Route business rules enforced on the client (the server accepts anything)
+- **Decision:** pure `domain/routeRules.ts`, used by the UI (disable invalid buttons) and by the actions (check again
+  before sending). Status transitions: assigned → in-progress | cancelled; in-progress → completed | cancelled;
+  completed / cancelled are final (assigned → completed blocked: a route can't finish without starting). New route:
+  destination 3–200 chars (trimmed), priority low/normal/high (default normal), notes ≤ 500 chars, the truck must
+  exist, have no current route and not be in maintenance. Reassign: route not finished, target ≠ current truck,
+  target exists, has no route, not in maintenance.
+- **Alternatives:** rely on the server (it accepts any status/destination; it even creates a route on a maintenance
+  truck and marks it active).
+- **Why:** the brief asks for input validation; blocking "create on maintenance" is consistent with the server's own
+  reassign rule.
+- **Real-world note:** the backend must enforce these too — client checks are for UX, not security.
+
+### D42. Describing a 409: who and what, from the most reliable source
+- **Decision:** pure `describeConflict()`. "Who/what" priority: (1) our audit-log entry for the route with
+  `version === currentVersion` (the exact change that beat us); (2) our stored route if already at `currentVersion`
+  (newest of `lastModifiedBy` / `reassignedBy`); (3) the 409 body's `lastModifiedBy`. If none → "needs refresh": the app
+  reloads routes ONCE and describes again; still unknown → "changed by another dispatcher". If the change was made by
+  our own id and the route already has what we wanted → "already applied" (our earlier attempt succeeded). Options:
+  keep theirs / apply mine (only if the transition is still allowed from the CURRENT status) / cancel.
+- **Why the body comes last:** server.js answers `lastModifiedBy: route.lastModifiedBy || route.assignedBy` — after a
+  reassign (which doesn't set lastModifiedBy) the immediate 409 names the route's CREATOR, not who changed it. The
+  delayed 409 has no "who" at all (QUIRK #8).
+- **Alternatives:** trust the 409 body; poll until the WS event arrives.
+
+### D43. Route actions: pessimistic ("saving…"), one request, no automatic retry
+- **Decision:** `src/app/routeActions.ts` (create / update status / apply-mine-after-conflict / reassign). Each checks
+  the client rules first (nothing sent if invalid), sends ONE request (≤ 10 s timeout) while the UI shows "saving…",
+  and returns an outcome: success, already applied, conflict (described by D42 — reloading routes once inside the
+  saving phase if "who" is unknown), truck taken (POST 409, with `byMe`), invalid, or error (network/timeout →
+  retryable via a manual Retry button). The screen updates from the WS event (sent by the server just before the
+  HTTP answer), so the action doesn't write the route itself — that also keeps the audit log complete.
+- **Alternatives:** optimistic update + rollback (a PATCH can 409 up to 1 s later → the status would jump back).
+- **Why:** never show unconfirmed data; one source of truth (server → WS → store).
+- **Trade-off:** 0.2–1 s "saving…" per action (the server's artificial delay).
+- **D43 addendum:** if the route already has the wanted status (e.g. a manual Retry after a timeout whose first attempt
+  worked), the action returns "already applied" without sending. The 409-based detection (D42) covers the case where
+  the store hasn't seen that change yet (409 → reload routes → our id + our values → already applied).
+
+### D44. Reassign race (no server lock): check before sending, detect after
+- **Decision:** (1) the reassign dialog remembers the route version when opened; before sending, if the version moved,
+  the action returns "changed since opened" (who + what from the audit log) and the dispatcher must confirm again.
+  (2) After a successful reassign, another dispatcher's `route_reassigned` for the same route within ±5 s of ours is
+  shown as "X also reassigned this route at the same time — it's now on truck Y". Pure functions over the audit log.
+- **Alternatives:** nothing (silent last-write-wins — the brief's "nobody knew who did what" story); polling.
+- **Why:** `PUT /reassign` has no version check, so the client can only narrow the window and make clashes visible.
+- **Limitation (interview point):** this doesn't PREVENT a clash; the real fix is an `If-Match` check on the server.
+  The 5 s window is a trade-off (shorter misses slow clashes, longer flags unrelated reassigns).
+
+### D45. Confirmations only on critical route actions
+- **Decision:** a confirmation dialog before Cancel route, Complete route and Reassign; not before Start route.
+- **Why:** the brief asks for "confirmation on critical actions"; cancel/complete are final and reassign moves work
+  between drivers (and has no server lock). Start is routine and easy to correct — confirming it would train
+  dispatchers to click "OK" without reading.
+
+### D46. Routes UI
+- **Decision:** routes panel (allowed next actions only, per-route "⏳ saving…", inline outcome messages), new-route
+  form (unavailable trucks shown greyed out with the reason), confirm dialog for complete/cancel, reassign dialog
+  (itself the confirmation: an explicit "Reassign to <truck>" button; remembers the version it opened with), conflict
+  dialog (who + what + now vs. yours; Keep theirs / Apply mine), audit log panel (newest first, "from snapshot"
+  marked). Route components read trucks through the 1 s throttled hook — they only need names/route ids, so telemetry
+  must not redraw them every 2 s. `startApp` returns the route actions; App passes them down as props.
+- **Alternatives:** `window.confirm` (blocking, unstyled, no context); React Context for actions (one consumer — not
+  worth it yet).
+- **Limitation:** until Phase 6, other dispatchers are shown by id ("You" for ourselves) — names need presence data.
+
+### D47. "Already done by them" instead of a conflict when both wanted the same change
+- **Found by:** the two-tab browser test — both dispatchers pressed "Start"; the loser's dialog said "your change was
+  NOT applied" although the route was exactly as they wanted.
+- **Decision:** if the route at the conflicting version already has our wanted values (made by someone else),
+  `describeConflict` sets `sameAsMine` (no "apply mine"); the UI shows "Already done — <who> <what> just before you"
+  with a single OK.
+
+### D48. One-screen dashboard layout
+- **Decision:** header on top, then a full-height CSS grid: map (top-left) + trucks (bottom-left) | routes (middle) |
+  route history (right). Each area scrolls on its own; the map SVG shrinks to fit its area. Below 1100 px wide the
+  areas stack and the page scrolls.
+- **Why:** user request — a dispatcher should see the fleet, the routes and the history at the same time without
+  scrolling the page.
+
+### D49. Low-fuel alert on the TRUSTED fuel value only
+- **Decision:** `isLowFuel()` = trusted fuel (`sensors.fuel.value`) < `profile.lowFuelPercent` (15% for trucks). Shown
+  as a red "⛽ low fuel" flag in the truck list (it outranks "checking"/"sensor fault").
+- **Why:** the brief's "don't trigger false low-fuel alerts" assumes there are low-fuel alerts. Using the trusted value:
+  a glitch to 0% never alerts (trusted value stays at the last good level); a real low level stays alerted through a
+  glitch; an unverified sudden "rise" keeps the alert until confirmed (safe direction); a real 0% that holds is
+  alerted after the 6 s window. Threshold per vehicle type (tank size).
+- **Verification:** the mock server's real fuel takes hours to get low and never goes below 5% — the behavior is
+  verified with tests driven through the real fuel detector (incl. the captured glitch sequence), not in the browser.
