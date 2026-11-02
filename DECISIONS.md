@@ -1,7 +1,10 @@
 # Decisions Log
 
-Running log of technical decisions: what we chose, what we rejected, why, and the trade-off.
-Feeds the README and interview prep.
+Running log of technical decisions: what we chose, what we rejected, why, and the trade-off — written as we went,
+phase by phase (D1–D56). The README summarizes the most important ones.
+
+**Final state:** all basic requirements and three bonuses (circuit breaker, observability panel, filterable fleet
+view) are done. Where a later decision changed an earlier one, the earlier entry points to it.
 
 ---
 
@@ -157,7 +160,7 @@ Feeds the README and interview prep.
   after a long gap passed, and an out-of-range reading reset the window. All covered by new tests.
 - **Trade-off / limitation:** a real sudden change is shown up to 6 s late. Below ~3% a drop to 0 fits the
   allowance and isn't caught. If the stream stops while unverified, the value stays "checking" — the
-  connection-status indicator (Phase 3) covers it. The low-fuel alert must use only the trusted value (later phase).
+  connection-status indicator (Phase 3) covers it. The low-fuel alert must use only the trusted value — done in D49.
 
 ---
 
@@ -458,7 +461,8 @@ Feeds the README and interview prep.
   must not redraw them every 2 s. `startApp` returns the route actions; App passes them down as props.
 - **Alternatives:** `window.confirm` (blocking, unstyled, no context); React Context for actions (one consumer — not
   worth it yet).
-- **Limitation:** until Phase 6, other dispatchers are shown by id ("You" for ourselves) — names need presence data.
+- **Limitation (resolved):** until Phase 6, other dispatchers were shown by id — names now come from presence (D50)
+  and from the dispatcher id itself (D54).
 
 ### D47. "Already done by them" instead of a conflict when both wanted the same change
 - **Found by:** the two-tab browser test — both dispatchers pressed "Start"; the loser's dialog said "your change was
