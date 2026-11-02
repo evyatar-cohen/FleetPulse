@@ -182,11 +182,29 @@ describe('REST client — typed errors', () => {
     expect(await new RestClient({ fetch }).getFleet()).toMatchObject({ ok: false, error: { kind: 'invalid_response' } });
   });
 
-  it('a body that is not JSON → invalid_response', async () => {
-    const { fetch } = fakeFetch(new Response('<html>Bad Gateway</html>', { status: 502 }));
+  it('a SUCCESS body that is not JSON → invalid_response', async () => {
+    const { fetch } = fakeFetch(new Response('<html>OK</html>', { status: 200 }));
     expect(await new RestClient({ fetch }).getFleet()).toMatchObject({
       ok: false,
-      error: { kind: 'invalid_response', status: 502 },
+      error: { kind: 'invalid_response', status: 200 },
+    });
+  });
+
+  it('review fix: a 503 with an HTML body (proxy error page) is still unavailable → retry/breaker work', async () => {
+    const { fetch } = fakeFetch(
+      new Response('<html>503 Service Unavailable</html>', { status: 503, headers: { 'Retry-After': '5' } }),
+    );
+    expect(await new RestClient({ fetch }).getFleet()).toEqual({
+      ok: false,
+      error: { kind: 'unavailable', retryAfterMs: 5000 },
+    });
+  });
+
+  it('review fix: another error status with a non-JSON body maps by status, not invalid_response', async () => {
+    const { fetch } = fakeFetch(new Response('<html>Bad Gateway</html>', { status: 502 }));
+    expect(await new RestClient({ fetch }).getFleet()).toEqual({
+      ok: false,
+      error: { kind: 'http', status: 502, message: 'Unknown error' },
     });
   });
 });

@@ -117,7 +117,7 @@ and never submit code I can't explain.
 
 ---
 
-## Phase 3 — Transport (in progress)
+## Phase 3 — Transport
 
 **How I worked with the AI this phase**
 - Asked for a remaining-phases estimate; pushed back that 18–26 h was too much → we agreed a faster mode
@@ -135,6 +135,14 @@ and never submit code I can't explain.
 - Noticed the circuit breaker is a **bonus** feature and asked to finish main tasks before bonuses; decided to
   finish the breaker anyway since it's already started (and is listed in the grading).
 - Asked what really happens with a passive breaker → step-by-step timeline.
+- Chose heartbeat-based dead-connection detection for SSE (20 s) over the AI's 10 s telemetry-based recommendation.
+- Asked whether the dispatcher is alerted when the stream is down → connection badge + banner (Phase 4) and
+  counters for observability.
+- Declined a temporary "live connection" demo page; kept the original plan.
+- **Review loop:** asked the AI to spawn a reviewer subagent and iterate until both agree. Round 1: 4 findings
+  (a real circuit-breaker bug — past `retryAtMs` during a probe — plus 3 test gaps), all verified and fixed with
+  tests. Round 2: 1 new MEDIUM (a proxy's HTML 503 was treated as invalid data → no retry/breaker), fixed with
+  tests. Round 3: approved. (The first reviewer run was lost when the session restarted; it was re-launched.)
 
 **My notes**
 - _(add your own notes here)_

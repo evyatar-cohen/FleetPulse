@@ -80,6 +80,8 @@ describe('Retry for reads', () => {
     { kind: 'invalid_response', status: 200, message: 'bad shape' },
     { kind: 'unauthorized', message: 'X-Dispatcher-Id header required' },
     { kind: 'version_conflict', body: { error: 'modified', currentVersion: 2 } },
+    // An open breaker must fail fast — retry must never wait on it (D21).
+    { kind: 'circuit_open', retryAtMs: 0 },
   ])('non-temporary error $kind → no retry', async (error) => {
     const { operation, calls } = scripted(failWith(error));
     const { sleep, waits } = recordingSleep();

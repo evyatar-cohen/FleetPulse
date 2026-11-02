@@ -55,8 +55,13 @@ export class CircuitBreaker {
 
   async call<T>(operation: () => Promise<ApiResult<T>>): Promise<ApiResult<T>> {
     const state = this.state;
-    if (state === 'open' || (state === 'half_open' && this.probeInFlight)) {
+    if (state === 'open') {
       return err({ kind: 'circuit_open', retryAtMs: this.openUntilMs ?? this.options.now() });
+    }
+    if (state === 'half_open' && this.probeInFlight) {
+      // The cooldown end is already in the past here. Point the caller one cooldown ahead (the worst case if the
+      // probe fails) so it never schedules a retry in the past and spins.
+      return err({ kind: 'circuit_open', retryAtMs: this.options.now() + this.options.cooldownMs });
     }
 
     const isProbe = state === 'half_open';

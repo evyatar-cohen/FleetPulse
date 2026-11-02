@@ -172,14 +172,17 @@ export class RestClient {
     const httpResponse = response.data;
 
     const body = await readJson(httpResponse);
-    if (!body.ok) {
-      return err({ kind: 'invalid_response', status: httpResponse.status, message: 'Response is not valid JSON' });
-    }
 
     if (httpResponse.ok) {
+      if (!body.ok) {
+        return err({ kind: 'invalid_response', status: httpResponse.status, message: 'Response is not valid JSON' });
+      }
       return parseSuccess(successSchema, body.data, httpResponse.status);
     }
-    return err(toApiError(httpResponse, body.data, options));
+    // Error status: the status decides the error kind. The body may not be JSON (e.g. a proxy's HTML 503 page) —
+    // that must still count as `unavailable` so retry and the circuit breaker work.
+    const errorBody = body.ok ? body.data : null;
+    return err(toApiError(httpResponse, errorBody, options));
   }
 
   // Sends the request with a timeout. Only "no answer at all" is an error here; any HTTP status is a response.

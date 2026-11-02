@@ -104,6 +104,9 @@ Grows as we go — each phase adds the new terms it introduces.
 - **Vitest** — test runner (like `pytest`). `describe` groups tests, `it` is one test, `expect(x).toBe(y)` asserts.
 - **`it.each`** — runs one test per input row (like `@pytest.mark.parametrize`).
 - **Fixture** — saved real data used by tests (our `fixtures/` folder, captured from the server in Phase 0).
+- **Fake timers (`vi.useFakeTimers`)** — tests move time forward by hand (`advanceTimersByTime`), so timeouts
+  and backoff are tested instantly.
+- **Fake / test double** — a stand-in object (fake `fetch`, fake `EventSource`) the test controls.
 - **`import.meta.glob`** — Vite feature that loads many files by pattern at once (used to load all fixtures).
 
 ## Networking / protocols
@@ -112,6 +115,12 @@ Grows as we go — each phase adds the new terms it introduces.
 - **SSE (Server-Sent Events)** — one-way stream server → client over a long HTTP response; each message is a
   `data: ...` line followed by a blank line. Used for telemetry.
 - **WebSocket (WS)** — two-way persistent connection. Used for presence and route events.
+- **`EventSource`** — the browser's SSE client. `readyState`: 0 connecting, 1 open, 2 closed (gave up).
+- **Watchdog** — a timer reset by every message; if it fires, the connection is considered dead.
+- **sessionStorage / localStorage** — browser key-value storage. sessionStorage is per tab and survives reload;
+  localStorage is shared by all tabs of the site. We keep the dispatcher id in sessionStorage.
+- **`setInterval` / `setTimeout`** — run a function repeatedly / once after a delay; must be cleared
+  (`clearInterval` / `clearTimeout`) on close, or they leak.
 - **Heartbeat / ping-pong** — periodic small messages to prove the connection is still alive.
 - **Optimistic locking** — every route has `_version`; we send it as `If-Match`; the server rejects with 409 if
   someone changed it in between (same as version-column locking in a DB).

@@ -191,3 +191,66 @@ then lets one probe through; success closes it again.
 - Dispatcher: a few seconds of retries, then a "stale since …" banner; the map keeps moving (SSE is separate);
   the banner disappears by itself on recovery. Server: one request per 10 s while sick.
 - It's a bonus feature in the brief, but listed under "Performance & Resilience" in the grading.
+
+### Q16. How do you know the live stream is dead, and what happens then?
+**One-liner:** A watchdog: any message (heartbeat every 15 s, telemetry every 2 s) resets a 20 s timer; if it fires,
+we close the connection and reconnect with backoff 1 s → 2 s → … → 30 s, forever, and the UI shows "live data lost
+since …".
+
+**Detail:**
+- `EventSource` reconnects by itself after a short drop, but gives up for good on an error status (CLOSED) and
+  can't notice a silent "open but dead" connection — the two gaps we fill.
+- A hanging attempt (never opens) is caught by the same watchdog. Backoff resets after a successful open.
+- Why heartbeat-based (20 s) and not 10 s from the telemetry rhythm: the heartbeat is the server's explicit
+  liveness signal, so no false alarms if telemetry slows. Cost: up to ~20 s frozen → "last update N s ago" in UI.
+- No replay (server sends no event ids): positions recover next tick, path keeps a gap, fleet snapshot reloaded.
+- Invalid messages are dropped and counted, never thrown. Real product: reconnect counts → monitoring.
+
+### Q17. Walk me through the WebSocket lifecycle. What happens on a reconnect?
+**One-liner:** Open → `register_dispatcher` (with the id saved in sessionStorage) → `registered` → ping every 10 s;
+if the socket closes, misses a pong (5 s) or never registers (10 s) → reconnect with backoff, re-register with the
+SAME id, and re-send the truck we're viewing.
+
+**Detail:**
+- Same id after reconnect/reload = the same dispatcher for others (not a new person). sessionStorage = per tab,
+  so two tabs are two dispatchers (needed for conflict testing); localStorage would merge them.
+- Ping/pong because the WS is often silent for minutes — a passive watchdog can't tell "quiet" from "dead".
+  The round trip doubles as latency for observability.
+- No outgoing queue: presence is state, so only the latest viewed truck is re-sent (a queue would replay stale
+  "viewing 3, 5, 7").
+- Unregistered sockets still receive broadcasts on this server (Phase 0 finding), but we treat the client as
+  ready only after `registered`, because REST writes need the id.
+- Ghost `dispatcher_left` about ourselves after a reconnect → handled in the presence logic (Phase 6).
+
+### Q18. `/api/fleet` returned 503 three times in a row. What does the dispatcher see, and what does the server get?
+**One-liner:** A "stale since …" banner over the last fleet data while the map keeps moving (SSE is separate); the
+breaker sends nothing for 10 s, then one probe — so at most one fleet request per 10 s until a probe succeeds.
+
+**Detail:** the 3 failures can come from one retried call (the breaker sits inside retry and counts each request).
+While open, calls fail instantly inside the app (`circuit_open`). Probe ok → closed, banner gone; probe fails →
+open for another 10 s. Don't confuse with SSE reconnect backoff (1 s → 30 s cap) — a different mechanism.
+
+*My answer: mixed it up with the SSE reconnect ("one request every 30 s forever").*
+
+### Q19. Why ping/pong on the WebSocket but only watch the heartbeat on SSE?
+**One-liner:** Because of who sends the keep-alive: the SSE server sends a heartbeat every 15 s by itself, so we can
+wait passively; the WS server sends nothing on its own and the channel can be quiet for minutes, so we must ask.
+
+**Detail:** WS being two-way is what *allows* a ping; the *need* is the missing server heartbeat. Ping every 10 s,
+no pong in 5 s → dead → reconnect. The round trip doubles as latency for observability.
+
+*My answer: "WS is two-directional so it needs ping/pong" — close, but the key reason is the missing server heartbeat.*
+
+### Q20. A create-route request times out and the dispatcher clicks Retry. What can go wrong and how is it handled?
+**One-liner:** The first request may have succeeded (only the answer was lost), so a retry could duplicate it. We never
+retry writes automatically; on a manual retry, a 409 "truck already assigned" whose `assignedBy` is OUR id means the
+first attempt worked → show success.
+
+**Detail:**
+- True idempotency needs server support (e.g. an `Idempotency-Key` header) — this server has none, so the client
+  can only detect, not prevent.
+- PATCH with `If-Match` is naturally safe (a repeat gets 409 because the version moved).
+- Send alert has no protection → could be sent twice: documented limitation; real fix = idempotency key on server.
+
+*My answer: "make it idempotent and ignore the repeat" — right risk, but we can't make the server idempotent; we
+detect "it was me" from the 409 instead.*

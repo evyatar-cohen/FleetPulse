@@ -144,6 +144,28 @@ describe('Circuit breaker — half-open probe', () => {
   });
 });
 
+describe('Circuit breaker — retryAtMs (review fix)', () => {
+  it('a call refused while the probe is running gets a FUTURE retry time, never a past one', async () => {
+    const { breaker, clock } = makeBreaker();
+    await failTimes(breaker, 3);
+    clock.advance(COOLDOWN_MS);
+    const now = clock.now();
+
+    let finishProbe: (result: ApiResult<string>) => void = () => undefined;
+    const slowProbe = breaker.call(
+      () => new Promise<ApiResult<string>>((resolve) => {
+        finishProbe = resolve;
+      }),
+    );
+    const refused = await breaker.call(async () => success);
+
+    // Old bug: retryAtMs was the (already past) end of the cooldown → a caller scheduling by it would spin.
+    expect(refused).toEqual(err({ kind: 'circuit_open', retryAtMs: now + COOLDOWN_MS }));
+    finishProbe(success);
+    await slowProbe;
+  });
+});
+
 describe('Circuit breaker + retry together', () => {
   it('one retried call with 503 ×3 opens the breaker; the next call fails fast with no waiting', async () => {
     const { breaker } = makeBreaker();
