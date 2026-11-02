@@ -293,3 +293,15 @@ that redraws at most once per second — the first change immediately, a burst c
 - The throttle is a pure timing helper tested with fake timers; the hook is thin glue (subscribe in `useEffect`,
   unsubscribe + cancel in its cleanup).
 - Trade-off: up to 1 s display lag — invisible with 2 s telemetry.
+
+### Q24. The map path looked like a scribble near some trucks. What was it and how did you fix it?
+**One-liner:** GPS batch points are random jitter around the current position with old timestamps; drawn in time order
+they zig-zag impossibly. A late point now joins the path only if it's reachable at ≤ the vehicle's max speed, and a
+batch is treated as history — it never moves the marker.
+
+**Detail:**
+- Same generic rule as the speed detector ("physically impossible"), using the vehicle profile's max speed.
+- A real-data test caught a subtle case: the batch's newest reading can be a few ms NEWER than the last live
+  reading, so it was accepted and moved the marker. Fix: batch = history; only a truck with no position yet takes
+  the batch's newest reading as current.
+- The current (live) position is always added — a long gap can legitimately make a big jump.

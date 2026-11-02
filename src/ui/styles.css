@@ -1,0 +1,145 @@
+/* Plain styling — visual polish is not graded. */
+body {
+  margin: 0;
+  font-family: system-ui, sans-serif;
+  background: #f5f6f8;
+  color: #1d2330;
+}
+
+main {
+  padding: 12px 16px;
+}
+
+h1 {
+  margin: 0;
+  font-size: 22px;
+}
+
+h2 {
+  margin: 0 0 8px;
+  font-size: 16px;
+}
+
+.header-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.dispatcher {
+  color: #555;
+}
+
+.badge {
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 13px;
+}
+
+.badge-ok { background: #e3f4e5; color: #1b5e20; }
+.badge-warn { background: #fff4d6; color: #7a5b00; }
+.badge-down { background: #fde3e3; color: #8e1b1b; }
+
+.banner {
+  padding: 8px 12px;
+  border-radius: 6px;
+  margin-bottom: 8px;
+}
+
+.banner-warn { background: #fff4d6; border: 1px solid #f1d27a; }
+.banner-error { background: #fde3e3; border: 1px solid #e9a3a3; }
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  gap: 12px;
+}
+
+@media (max-width: 900px) {
+  .layout { grid-template-columns: 1fr; }
+}
+
+.panel {
+  background: #fff;
+  border-radius: 8px;
+  padding: 12px;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 8%);
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+th, td {
+  text-align: left;
+  padding: 4px 6px;
+  border-bottom: 1px solid #eee;
+}
+
+/* Stable columns: fixed layout, one line per cell, equal-width digits. */
+.truck-table {
+  table-layout: fixed;
+  font-variant-numeric: tabular-nums;
+}
+
+.truck-table td {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.status-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 6px;
+}
+
+.sensor-flag {
+  color: #b26a00;
+  font-size: 12px;
+}
+
+.muted {
+  color: #888;
+}
+
+.fleet-map {
+  width: 100%;
+  height: auto;
+  background: #fbfcfd;
+  border: 1px solid #e3e6ea;
+}
+
+.grid-line { stroke: #eceff3; stroke-width: 1; }
+.truck-path { fill: none; stroke-width: 2; opacity: 0.45; }
+.truck-marker { stroke: #fff; stroke-width: 2; }
+.truck-label { font-size: 12px; fill: #333; }
+
+.legend {
+  display: flex;
+  gap: 16px;
+  margin-top: 6px;
+  font-size: 13px;
+}
+
+.name-form {
+  max-width: 360px;
+  margin: 15vh auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.name-form input {
+  display: block;
+  width: 100%;
+  margin-top: 4px;
+  padding: 6px;
+  font-size: 15px;
+}

@@ -340,3 +340,31 @@ Feeds the README and interview prep.
 - **Alternatives:** batch store writes every second (delays data for everyone, complicates the pipeline);
   no throttling (graded requirement; batch bursts could freeze the UI — the "froze last Tuesday" story).
 - **Trade-off:** the display can lag up to 1 s behind the data.
+
+### D37. Dashboard UI pieces
+- **Name form** (not `window.prompt`): trimmed, 1–40 chars, saved in sessionStorage with the dispatcher id.
+- **Header:** SSE ("Telemetry") and WS ("Dispatch") badges; "fleet data stale since …" banner while the fleet can't
+  be loaded (breaker/degraded mode); "live telemetry interrupted" banner only while SSE is reconnecting (not during
+  the normal first connect).
+- **Truck list:** trusted speed/fuel + flag (`⚠ sensor fault`, `⏳ checking`), "—" when no trusted value; "updated N s
+  ago" keeps counting via a 1 s clock hook. Limitation: the age compares server timestamps with the browser clock
+  (equal on one machine; off by the skew otherwise).
+- **Map:** SVG, auto-fit to all known positions (north up), dot = current position, line = recent path.
+- **Error boundaries** around header, map and list: one crashing panel shows a message + "Try again"; the rest keeps
+  working. Errors are logged to the console (real product: monitoring).
+- **Untested by unit tests:** React components themselves (no DOM test library added — would need new dependencies);
+  their logic is in tested pure helpers (format, projection, throttle, selectors).
+
+### D38. Path plausibility filter + GPS batch treated as history (supersedes part of D12)
+- **Problem (seen in the browser):** batch positions are random jitter (±~100 m) around the CURRENT position with
+  old timestamps → sorted by time they draw an impossible zig-zag "scribble". Also, the batch's newest reading can be
+  a few ms newer than the last live reading → it was "accepted" and moved the marker to a noisy position.
+- **Decision:** (1) a late point joins the path only if reaching it from its time-neighbors needs ≤ the vehicle's
+  `maxSpeedKmh` (`isPlausiblePathPoint`, flat-earth distance, min 1 ms). (2) A GPS batch is history: it never moves
+  the marker or touches sensors; it only fills the path (plausible points only). Exception: a truck with no position
+  yet takes the batch's newest reading as current. Live telemetry keeps the normal ordering rules; the current
+  (accepted) position is always added — the marker is the truth.
+- **Alternatives:** keep drawing every point (honest but misleading); drop batches entirely; smooth the path.
+- **Why:** the same "physically impossible" rule as the speed detector — generic, not batch-specific; found by a
+  real-data test that failed on the first version (the few-ms-newer batch reading).
+- **Trade-off:** a genuinely fast real movement between two late points would be hidden from the path (never the marker).

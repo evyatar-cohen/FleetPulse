@@ -104,6 +104,11 @@ Grows as we go — each phase adds the new terms it introduces.
   when the component goes away (unsubscribe, clear timers). Like a context manager's `__enter__` / `__exit__`.
 - **Throttle** — run at most once per interval; extra calls collapse into one trailing call.
 - **StrictMode** — dev-only React wrapper that runs some code twice to reveal bugs (e.g. missing cleanup).
+- **Error boundary** — a React component that catches render errors in its children and shows a fallback
+  instead of a blank page (must be a class component).
+- **SVG** — the browser's vector drawing format (`<circle>`, `<polyline>`); used for the map grid.
+- **Props** — the inputs a component receives (`<TruckRow truck={…} />`), like function arguments.
+- **`key`** — a stable id React needs on list items to track them between redraws.
 - **Vite** — dev server + bundler. Serves the app at `localhost:5173` with instant reload; builds for production.
 - **Dev proxy** — Vite forwards `/api` and `/ws` to the mock server on `:3000`, so the client uses relative URLs.
 - **CORS** — browser rule blocking calls to another origin unless the server allows it. The mock server sends

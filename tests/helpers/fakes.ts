@@ -44,7 +44,7 @@ export class FakeWebSocket implements WebSocketLike {
   readyState = CONNECTING;
   onopen: ((event: Event) => void) | null = null;
   onmessage: ((event: MessageEvent) => void) | null = null;
-  onclose: ((event: Event) => void) | null = null;
+  onclose: ((event: CloseEvent) => void) | null = null;
   onerror: ((event: Event) => void) | null = null;
   sent: WsClientMessage[] = [];
   closed = false;
@@ -73,7 +73,7 @@ export class FakeWebSocket implements WebSocketLike {
   // The server or network closed the socket.
   emitClose(): void {
     this.readyState = WS_CLOSED;
-    this.onclose?.(new Event('close'));
+    this.onclose?.(new CloseEvent('close'));
   }
 
   sentOfType(type: WsClientMessage['type']): WsClientMessage[] {

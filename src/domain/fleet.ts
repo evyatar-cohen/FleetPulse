@@ -3,7 +3,7 @@
 // Pure functions: no I/O, no store, no React.
 import type { SseEvent } from './events';
 import type { FleetTruck, TelemetryReading, TruckStatus } from './models';
-import { ingestBatch, ingestReading, type TruckTelemetry } from './telemetry/truckTelemetry';
+import { ingestBatch, ingestReading, type IngestContext, type TruckTelemetry } from './telemetry/truckTelemetry';
 import { DEFAULT_VEHICLE_TYPE, getVehicleProfile } from './vehicles';
 
 export interface TruckView {
@@ -84,25 +84,35 @@ export function applyTelemetryEvent(trucks: Trucks, event: SseEvent, serverTime:
   if (event.type === 'telemetry') {
     let next: Trucks = trucks;
     for (const reading of event.readings) {
-      next = applyReadings(next, reading.truckId, [reading], event.timestamp);
+      next = updateTelemetry(next, reading.truckId, reading.status, event.timestamp, (telemetry, context) =>
+        ingestReading(telemetry, reading, context).state,
+      );
     }
     return next;
   }
   if (event.type === 'gps_batch') {
-    // QUIRK #1: old readings for one truck — same rules; they fill the path, never move the marker.
-    return applyReadings(trucks, event.truckId, event.readings, serverTime);
+    // QUIRK #1: buffered old readings for one truck — they fill the path, never move the marker.
+    const first = event.readings[0];
+    if (first === undefined) return trucks;
+    return updateTelemetry(trucks, event.truckId, first.status, serverTime, (telemetry, context) =>
+      ingestBatch(telemetry, event.readings, context),
+    );
   }
   // connected / heartbeat: no truck data.
   return trucks;
 }
 
-function applyReadings(trucks: Trucks, truckId: string, readings: readonly TelemetryReading[], now: number): Trucks {
-  const first = readings[0];
-  if (first === undefined) return trucks;
-  const truck = trucks[truckId] ?? unknownTruck(truckId, first.status);
+// Runs one telemetry update for one truck and returns new Trucks (or the SAME object if nothing changed).
+function updateTelemetry(
+  trucks: Trucks,
+  truckId: string,
+  statusIfNew: TruckStatus,
+  now: number,
+  update: (telemetry: TruckTelemetry | undefined, context: IngestContext) => TruckTelemetry | undefined,
+): Trucks {
+  const truck = trucks[truckId] ?? unknownTruck(truckId, statusIfNew);
   const profile = getVehicleProfile(truck.vehicleType);
-  const telemetry = ingestBatch(truck.telemetry, readings, { now, profile });
-  const updated = withTelemetry(truck, telemetry);
+  const updated = withTelemetry(truck, update(truck.telemetry, { now, profile }));
   if (updated === trucks[truckId]) return trucks;
   return { ...trucks, [truckId]: updated };
 }

@@ -146,3 +146,38 @@ and never submit code I can't explain.
 
 **My notes**
 - _(add your own notes here)_
+
+---
+
+## Phase 4 — Minimal UI
+
+**How I worked with the AI this phase**
+- Asked what the assignment says about the map before choosing → chose a simple SVG grid over Leaflet
+  ("map quality is not graded").
+- Approved Zustand after comparing it with React Context, Redux and a hand-written store; asked for a better
+  explanation of "thin store actions + pure domain functions" → explained as handler → service → DB.
+- Asked for a browser check by the AI itself → a Sonnet subagent drove headless Chrome via the DevTools protocol.
+
+**What the AI produced**
+- Store (Zustand) + fleet domain functions, startup wiring (`startApp`: WS → registered → fleet → SSE, 30 s refresh,
+  breaker-aware probe scheduling, reloads on fleet_reset / SSE reconnect), throttled rendering (1 s), header with
+  connection badges and stale banners, truck list with sensor flags, SVG map, name form, error boundaries.
+
+**What I found / questioned / changed**
+- Looking at the running app, I asked why Truck Golf is always maintenance at 0 km/h and why Delta/Juliet are
+  always idle → correct server behavior (fault flag appears only during stuck episodes; idle trucks need a route).
+- I spotted a "scribble" on the map path → GPS batch jitter. I chose the AI's option B: a physically-plausible path
+  filter. A real-data test then failed and exposed a subtle bug (a batch reading a few ms newer than the live one
+  moved the marker) → batch is now treated as history.
+- I asked "what do you mean by history — the marker must still update?" → clarified: live telemetry moves the
+  marker every 2 s; the batch only fills the path.
+- I asked to stop the table columns from moving → fixed widths + tabular digits.
+- I asked why only the path since connecting is shown → the server keeps no history and its history endpoint
+  returns random data; documented as a limitation.
+- The AI committed one checkpoint without asking first, and admitted it.
+- The AI's browser checks raised two false alarms, both investigated before acting: badges "disconnected"
+  (caused by Vite hot-reload while the AI edited files during the check) and a "long first path segment"
+  (measured directly: ≤ 11 m — the subagent's script misread the SVG).
+
+**My notes**
+- _(add your own notes here)_

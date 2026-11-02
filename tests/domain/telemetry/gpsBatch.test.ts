@@ -37,6 +37,13 @@ function pathTimestamps(state: TruckTelemetry | undefined): number[] {
 }
 
 describe('GPS batch (QUIRK #1)', () => {
+  it('a batch reading a few ms NEWER than the live one still does not move the marker (batch = history)', () => {
+    const live = makeReading({ timestamp: NOW - 2003, location: { lat: 32.1, lng: 34.8 } });
+    const batch = [makeReading({ timestamp: NOW - 2000, location: { lat: 32.1005, lng: 34.8 } })];
+    const state = ingestBatch(ingestReading(undefined, live, at(NOW)).state, batch, at(NOW));
+    expect(state?.current).toEqual(live);
+  });
+
   it('a batch of older readings does not change the current position', () => {
     const live = makeReading({ timestamp: NOW - 1000, location: { lat: 32.1, lng: 34.8 } });
     const batch = [
@@ -100,10 +107,10 @@ describe('GPS batch (QUIRK #1)', () => {
     expect(pathTimestamps(state)).toEqual([NOW - 1000]);
   });
 
-  it('real server data: batch between live ticks → one current position (the newest live tick), full path', () => {
+  it('real server data: batch between live ticks → one current position (the newest live tick), sorted path', () => {
     let state: TruckTelemetry | undefined = undefined;
     let newestLive: TelemetryReading | undefined = undefined;
-    let batchSize = 0;
+    let liveCount = 0;
 
     // Replay the captured sequence in arrival order, as the store will do.
     for (const entry of batchContextFixture) {
@@ -111,26 +118,29 @@ describe('GPS batch (QUIRK #1)', () => {
         const reading = TelemetryReadingSchema.parse(entry.reading);
         state = ingestReading(state, reading, at(entry.eventTimestamp)).state;
         newestLive = reading;
+        liveCount++;
       } else if (entry.type === 'gps_batch' && 'readings' in entry) {
         const batch = SseEventSchema.parse(entry);
         if (batch.type !== 'gps_batch') throw new Error('not a gps_batch');
-        batchSize = batch.readings.length;
         state = ingestBatch(state, batch.readings, at(entry.receivedAt));
       }
     }
 
     expect(state?.current).toEqual(newestLive);
     const timestamps = pathTimestamps(state);
-    expect(timestamps.length).toBeGreaterThanOrEqual(batchSize);
+    // Every live position is on the path; batch points only where physically plausible (pathPlausibility.test.ts).
+    expect(timestamps.length).toBeGreaterThanOrEqual(liveCount);
     expect(timestamps).toEqual([...timestamps].sort((a, b) => a - b));
   });
 
-  it('real server data: a 12-reading batch on its own → one current position, 12 path points', () => {
+  it('real server data: a 12-reading batch on its own → one current position (the newest), plausible path', () => {
     const event = SseEventSchema.parse(batchFixture);
     if (event.type !== 'gps_batch') throw new Error('not a gps_batch');
     const newestTimestamp = Math.max(...event.readings.map((reading) => reading.timestamp));
     const state = ingestBatch(undefined, event.readings, at(newestTimestamp));
     expect(state?.current.timestamp).toBe(newestTimestamp);
-    expect(state?.path).toHaveLength(event.readings.length);
+    // The batch positions are random jitter, so only the physically reachable ones join the path.
+    expect(state?.path.length).toBeGreaterThanOrEqual(1);
+    expect(state?.path.length).toBeLessThanOrEqual(event.readings.length);
   });
 });
