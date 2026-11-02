@@ -11,7 +11,7 @@ import { SENSOR_DETECTORS } from './detectors';
 // unverified   — the reading jumped suspiciously; value is the last trusted one while we wait to decide
 export type SensorStatus = 'ok' | 'sensor_fault' | 'unverified';
 
-// How an 'unverified' episode ended — set only on the reading that ends it. Feeds the anomaly log later.
+// How an 'unverified' episode ended — set only on the reading that ends it.
 export type SensorResolution = 'glitch' | 'confirmed';
 
 export interface SensorState {

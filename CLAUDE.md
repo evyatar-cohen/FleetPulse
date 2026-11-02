@@ -79,7 +79,7 @@ Stack (propose confirming at Phase 1): React + TypeScript + Vite + Vitest, Leafl
    conflicting change; confirmation on critical actions; route history/audit log. Test with two tabs.
 6. **Dispatcher presence** — register, list active dispatchers, who views which truck, ghost presence.
 7. **Vehicle detail panel** — speed/fuel/temp live charts (windowed buffer), mileage, send alert, route details.
-8. **Bonuses, by value/cost** — anomaly dashboard → observability panel → 409 side-by-side resolution.
+8. **Bonuses, by value/cost** — observability panel → filterable fleet view → 409 side-by-side resolution.
 9. **Final docs & cleanup.**
 
 ## Things that are easy to miss (verified in server.js)

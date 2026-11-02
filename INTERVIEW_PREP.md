@@ -118,7 +118,7 @@ glitch; if it stays off for 6 s → we accept and show the new value as real.
   Real world: tune it from logged glitch durations.
 - While `unverified`, no low-fuel alert can fire — alerts use only the trusted value.
 - The 6 s window is the safety bound: a real problem is never hidden for longer.
-- Each episode ends with `resolved: 'glitch' | 'confirmed'`, which the anomaly dashboard can log.
+- Each episode ends with `resolved: 'glitch' | 'confirmed'` — how it ended.
 - Out of 0..100 → `sensor_fault` immediately, no window.
 
 *My answer: mostly right — but after 6 s we don't "flag abnormal behavior": we accept the value as real and show it.*
