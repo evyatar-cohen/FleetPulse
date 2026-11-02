@@ -163,3 +163,8 @@ Grows as we go — each phase adds the new terms it introduces.
   Needed because `btoa` alone only accepts Latin-1 characters.
 - **Presence snapshot** — a "who's online right now" list a server sends to a newly connected client. Our server
   has none, so our clients announce themselves (D53).
+- **Sliding window (rate)** — keep only the last N seconds of samples and compute the rate over them; old samples
+  drop off, so the number follows recent traffic and memory stays fixed.
+- **Observability** — numbers that show how a running system behaves (message rates, latency, errors, reconnects),
+  so problems are visible before users report them.
+

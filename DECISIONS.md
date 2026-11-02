@@ -555,3 +555,18 @@ Feeds the README and interview prep.
   another client/server (no `.`) just show the id.
 - **Real-world fix:** names come from login (user table / auth token) and the server sends a presence snapshot to
   new clients (in Redis when there are several server instances); clients never invent identities.
+
+## Phase 8 — Bonuses
+
+### D55. Observability panel reads the transport counters directly, not through the store
+- **Decision:** a "🛠 Dev" button (bottom-left) opens a small panel: SSE messages/s (10 s average), SSE and WS
+  received / dropped, reconnect counts, WS ping → pong latency. It reads `SseClient.stats` / `WsClient.stats` (counters
+  the clients already kept since Phase 3) once per second, **only while open**.
+- **Alternatives:** put the stats in the Zustand store (every second → store update → every subscribed screen
+  re-checks; dev numbers would cost dispatcher screens); a 1-second delta for the rate (the server sends bursts every
+  2 s, so it jumps 0 ↔ ~24).
+- **Why:** developer-facing data shouldn't touch the dispatcher data path; polling only when open costs nothing
+  otherwise. "Dropped" = failed JSON/Zod validation at the transport boundary.
+- **Trade-off:** counters are since page load (not per minute); the rate starts empty for a second after opening.
+  Not shown: retry counts and circuit-breaker state (the stale banner already shows degraded mode).
+

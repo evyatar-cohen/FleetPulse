@@ -328,3 +328,30 @@ tr.selected { background: #e8f0fe; }
 
 .alert-form { display: grid; grid-template-columns: 1fr auto auto; gap: 6px; margin-bottom: 6px; }
 .alert-form input, .alert-form select { padding: 4px; font: inherit; }
+
+/* Observability panel (developer-facing): small, fixed bottom-left, above the dashboard. */
+.observability-toggle {
+  position: fixed;
+  left: 12px;
+  bottom: 12px;
+  z-index: 1000;
+}
+
+.observability {
+  position: fixed;
+  left: 12px;
+  bottom: 12px;
+  z-index: 1000;
+  width: 300px;
+  box-shadow: 0 4px 16px rgb(0 0 0 / 20%);
+}
+
+.observability-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.observability th { font-weight: normal; padding: 2px 8px 2px 0; }
+.observability td { text-align: right; font-variant-numeric: tabular-nums; }

@@ -42,6 +42,8 @@ export interface RunningApp {
   // Select a truck (detail panel) and tell other dispatchers we're viewing it (presence). null = deselect.
   selectTruck: (truckId: string | null) => void;
   ws: WsClient;
+  // Read by the observability panel (stats counters).
+  sse: SseClient;
   stop: () => void;
 }
 
@@ -169,6 +171,7 @@ export function startApp(dispatcherName: string, deps: AppDependencies, store: S
       ws.setViewingTruck(truckId);
     },
     ws,
+    sse,
     stop: () => {
       stopped = true;
       clearRefreshTimer();

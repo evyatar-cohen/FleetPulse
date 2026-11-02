@@ -9,6 +9,7 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { FleetMap } from './components/FleetMap';
 import { Header } from './components/Header';
 import { NameForm } from './components/NameForm';
+import { ObservabilityPanel } from './components/ObservabilityPanel';
 import { AuditLogPanel } from './components/routes/AuditLogPanel';
 import { RoutesPanel } from './components/routes/RoutesPanel';
 import { TruckDetailPanel } from './components/TruckDetailPanel';
@@ -77,6 +78,11 @@ export function App(): ReactElement {
       {running !== null && selectedTruckId !== null && (
         <ErrorBoundary area="the truck details">
           <TruckDetailPanel truckId={selectedTruckId} actions={running.truckActions} onClose={() => selectTruck(null)} />
+        </ErrorBoundary>
+      )}
+      {running !== null && (
+        <ErrorBoundary area="the observability panel">
+          <ObservabilityPanel sources={running} />
         </ErrorBoundary>
       )}
     </main>

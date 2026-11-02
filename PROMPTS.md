@@ -247,3 +247,17 @@ and never submit code I can't explain.
 
 **My notes**
 - _(add your own notes here)_
+
+---
+
+## Phase 8 — Bonuses
+
+**How I worked with the AI this phase**
+- Asked the AI to go over the assignment PDF and check every requirement. It mapped each basic requirement to the
+  code (all covered) and listed what's left: README, final checks, bonuses. It suggested README first; I chose bonuses first.
+- I noticed many trucks at 5% fuel. Instead of guessing, the AI found the cause in `server.js`: active trucks drain
+  ~30%/hour, never refuel, floor 5%. I asked how to reset; I decided not to add a reset button (not a bonus).
+- Observability panel: built with the AI deciding details autonomously (D55).
+
+**My notes**
+- _(add your own notes here)_
