@@ -212,5 +212,8 @@ and never submit code I can't explain.
   both pressed "Start", the loser was told "your change was NOT applied" although the route was as wanted → now
   "Already done by <who>".
 
+- A code-review subagent ran very long; I asked to stop it. Phase 5 was verified by 284 unit tests and the
+  two-tab browser test instead.
+
 **My notes**
 - _(add your own notes here)_
