@@ -158,3 +158,127 @@ Feeds the README and interview prep.
 - **Trade-off / limitation:** a real sudden change is shown up to 6 s late. Below ~3% a drop to 0 fits the
   allowance and isn't caught. If the stream stops while unverified, the value stays "checking" — the
   connection-status indicator (Phase 3) covers it. The low-fuel alert must use only the trusted value (later phase).
+
+---
+
+## Phase 3 — Transport
+
+### D17. REST client returns `Result` values, not exceptions
+- **Decision:** every method returns `{ ok: true, data } | { ok: false, error }`; `error.kind` is a discriminated
+  union (version_conflict, truck_assigned, unavailable, network, timeout, invalid_response, …).
+- **Alternatives:** throw exceptions; return null; a Result library (neverthrow); hybrid (results + throws).
+- **Why:** a 409 is normal flow in this app (two dispatchers clash). The type forces callers to handle it, and the
+  error carries what the UI needs (who, current version).
+- **Trade-off:** an `if (!result.ok)` at every call site.
+
+### D18. `RestClient` is a class with `fetch` injected; built-in fetch + 10 s timeout
+- **Decision:** `new RestClient({ fetch })`; `setDispatcherId()` after WS `registered`. Writes before that are refused
+  locally (`not_registered`). `If-Match` on every route update. Path ids are URL-encoded.
+- **Alternatives:** global functions + global id; factory with closure; patching global fetch in tests (or MSW);
+  axios / ky.
+- **Why:** visible state, same pattern as SSE/WS clients; tests run the real code with a fake fetch; no dependency
+  for a thin wrapper; we write the resilience logic ourselves because it's graded and must be explained.
+- **Trade-off:** ~30 lines of our own error handling; one extra constructor parameter.
+
+### D19. Retry and circuit breaker are wrappers outside the client; business rules live in `domain/`
+- **Decision:** `withRetry` and `CircuitBreaker` wrap calls explicitly. Automatic retry only for reads (idempotent).
+  Writes get a manual "Retry" in the UI; a 409 from our own earlier attempt is treated as success.
+- **Alternatives:** retry inside every client method; a resilience library (cockatiel/opossum).
+- **Why:** each piece is simple and tested alone; a write can never be retried by accident (a lost response could
+  otherwise create a route twice or send an alert twice).
+- **Trade-off:** one more layer; nested-looking calls.
+
+### D20. Retry policy for reads
+- **Decision:** `withRetry()` retries temporary errors (503, network, timeout); 3 attempts in total; wait =
+  `Retry-After` (seconds) when present, otherwise exponential backoff (1 s, 2 s); a requested wait above 10 s →
+  return the error immediately. `sleep` is injected so tests don't wait.
+- **Alternatives:** retry only 503; fixed wait; retry forever / 5+ attempts; always obey Retry-After.
+- **Why:** respects the server's hint (assignment requirement) but works without it (network errors, proxies,
+  HTTP-date format). 3 attempts make a failed load ~0.3% likely at 15% 503s; the cap keeps the UI responsive —
+  long outages are the circuit breaker's job.
+- **Not done:** jitter (random spread of waits) — matters with many clients ("thundering herd"), not with 1–2 tabs.
+
+### D21. Circuit breaker on `GET /api/fleet` (bonus, partly graded under Performance & Resilience)
+- **Decision:** a passive state machine CLOSED → OPEN → HALF-OPEN. Failures = 503, network, timeout (same list as
+  retry). It counts **every request**: it sits inside retry — `withRetry(() => breaker.call(() => rest.getFleet()))`.
+  3 failures in a row → OPEN for a 10 s cooldown: calls return `circuit_open` immediately (retry doesn't retry it).
+  After the cooldown the next call is the probe (HALF-OPEN): success → CLOSED, failure → OPEN again.
+  While open, the store shows the last fleet data marked "stale"; SSE positions keep updating.
+- **Alternatives:** count only 503 (a dead server would never trip it); breaker outside retry (needs 9 failed
+  requests to trip); active breaker with its own probe timer; growing cooldown.
+- **Why:** matches the spec ("503 three times consecutively"), reacts fast, and protects a sick server (one request
+  per 10 s instead of a stream). Passive = no timers or lifecycle in the breaker; the clock is injected for tests.
+  The store's 30 s fleet refresh (Phase 4) provides the calls and schedules the next one at the cooldown end.
+- **Trade-off:** recovery is noticed only on the next call (≤ ~10 s with scheduling).
+
+### D22. SSE client uses the browser's `EventSource` (+ our own watchdog and reconnect-after-give-up)
+- **Decision:** `EventSource` for `/api/telemetry/stream`; we add what it lacks (see D23+).
+- **Alternatives:** `fetch` + parse the `data:` frames ourselves (full control, ~40 more lines to own and test).
+- **Why:** built-in parsing and auto-reconnect; the SSE endpoint needs no custom headers.
+- **Trade-off:** we don't control its own retry timing (~3 s, browser-defined), and it stops for good on an error
+  status (CLOSED) — we reconnect ourselves in that case.
+
+### D23. Dead SSE connection detected by heartbeat timeout
+- **Decision:** a watchdog resets on every message (heartbeat, telemetry, batch); if nothing arrives for 20 s
+  (heartbeat interval 15 s + margin) the connection is treated as dead → close, mark `reconnecting`, reopen.
+- **Alternatives:** a 10 s timeout based on the 2 s telemetry rhythm (faster, but tied to telemetry frequency);
+  no detection.
+- **Why:** the heartbeat is the server's explicit liveness signal, independent of how often telemetry is sent —
+  no false alarms if telemetry slows down.
+- **Trade-off:** up to ~20 s of frozen positions before we react. Mitigation (Phase 4): show "last update N s ago".
+
+### D24. SSE reconnect: exponential backoff 1 s → 30 s cap, never give up
+- **Decision:** when `EventSource` gives up (CLOSED) or the watchdog declares it dead, we open a new one after
+  1 s, 2 s, 4 s … capped at 30 s; reset to 1 s after a successful connection. A hanging attempt is caught by the
+  same 20 s watchdog. Status changes are reported (`onStatusChange`) → UI connection badge + "live data lost
+  since …" banner (Phase 4). Reconnect attempts and dropped messages are counted (observability).
+- **Alternatives:** fixed delay (hammers a dead server); give up after N attempts + manual retry button.
+- **Why:** a wall-screen dashboard must heal by itself; at most one attempt per 30 s is harmless to the server.
+- **Real-world note:** reconnect counts would also go to monitoring (Sentry/metrics) — out of scope here.
+
+### D25. No replay after an SSE gap; fleet snapshot reloaded on reconnect
+- **Decision:** the server sends no event ids, so missed telemetry can't be replayed. Positions recover on the next
+  tick; the map path keeps an honest gap; the store reloads the REST fleet snapshot after a reconnect (Phase 4).
+  `EventSource` is injected (like `fetch`) so tests drive a fake; timers use Vitest fake timers.
+- **Alternatives:** interpolate missing path points (invents data); `Last-Event-ID` resume (server doesn't support it).
+- **Trade-off:** a gap in the path after an outage.
+
+### D26. WebSocket client on the browser's built-in `WebSocket`
+- **Decision:** native `WebSocket` (injected, faked in tests) + our own reconnect, ping/pong and re-registration.
+  Backoff calculation shared with the SSE client (one helper). Dispatcher id kept in `sessionStorage`
+  (decided at kickoff: one dispatcher per tab, survives reload).
+- **Alternatives:** `reconnecting-websocket` (reconnect only — not our registration/ping/re-send logic);
+  `socket.io-client` (needs a socket.io server — incompatible with the plain `ws` server).
+- **Why:** no dependency; same pattern as SSE; the important logic is ours anyway.
+
+### D27. WebSocket keep-alive: ping every 10 s, no pong within 5 s → dead
+- **Decision:** while open, send `ping` every 10 s; if no `pong` arrives within 5 s → close and reconnect.
+  Each ping→pong round trip is recorded as latency (observability).
+- **Alternatives:** a message watchdog like SSE (the WS is often silent for minutes → false alarms or a very long
+  timeout); no keep-alive (a dead socket silently stops route events → missed conflicts).
+- **Why:** an active check works on a quiet channel; detects a dead socket within ~15 s.
+- **Trade-off:** a tiny message every 10 s.
+
+### D28. Outgoing WS messages: no queue — re-send current state after reconnect
+- **Decision:** `register_dispatcher` is sent on every connect (with the saved id). For `viewing_truck` we keep only
+  the latest truck viewed and send it once after (re)registering. Nothing is queued.
+- **Alternatives:** queue all messages while offline (sends stale "viewing 3, 5, 7" → cursor jumps for others);
+  drop and never re-send (others don't see what we view after a reconnect).
+- **Why:** presence is state, not history — only the latest value matters.
+- **Trade-off:** a future outgoing message type needs its own "re-send on reconnect" rule.
+- **Also:** if `registered` doesn't arrive within 10 s of opening, the attempt counts as failed → reconnect.
+
+### D29. Shared connection helpers
+- **Decision:** `src/transport/connection.ts` holds what SSE and WS share: `ConnectionStatus`, `backoffDelay()`
+  (1 s → 30 s cap) and `parseMessage()` (JSON + Zod; invalid → null, dropped and counted by the caller).
+- **Why:** one implementation of the backoff and of "untrusted message → typed or dropped"; found as a duplicate
+  while writing the WS client and extracted.
+
+### D30. Review-loop fixes (Phase 3, reviewer subagent, 3 rounds until approved)
+- **Circuit breaker:** a call refused while the half-open probe runs now gets `retryAtMs = now + cooldown`. Before,
+  it got the already-past cooldown end → a caller scheduling its next attempt by it would spin.
+- **REST client:** a non-JSON body is `invalid_response` only for 2xx. For an error status the status decides the
+  kind — a proxy's HTML 503 page is still `unavailable`, so retry and the breaker work. A non-JSON 409 degrades to
+  `invalid_response` (no retry, no breaker trip, no crash).
+- **Tests added:** `circuit_open` is never retried; connect → close → connect for SSE and WS; one misleading
+  test name fixed.

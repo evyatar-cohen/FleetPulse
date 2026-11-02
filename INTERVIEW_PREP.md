@@ -129,3 +129,128 @@ no other code changes.
   profile instead of crashing.
 
 *My answer: correct.*
+
+---
+
+## Phase 3 — Transport
+
+### Q10. SSE vs WebSocket — what's the difference and why use both?
+**One-liner:** SSE is one-way (server → client) over plain HTTP with built-in reconnect; WebSocket is two-way. We use
+SSE for telemetry (we only receive) and WebSocket for presence and route events (we also send).
+
+**Detail:**
+- SSE: a long HTTP response of `data: …` lines; the browser's `EventSource` reconnects by itself; keep-alive =
+  server heartbeat (15 s here).
+- WebSocket: its own protocol after an HTTP upgrade; reconnect is manual; keep-alive = our `ping` → `pong`.
+- We send `register_dispatcher`, `ping`, `viewing_truck` → needs WS.
+
+### Q11. What is optimistic locking and how does `If-Match` work here?
+**One-liner:** Don't block editors; detect conflicts when saving. We send the route's `_version` in `If-Match`; if the
+server's version differs, it rejects with 409 instead of overwriting.
+
+**Detail:**
+- `_version` is a field in the route data (set by the server, +1 on each change); `If-Match` is the request header
+  we send with that value. Like `UPDATE … WHERE version = 3` in a DB.
+- Without it: last write wins silently — the assignment's "nobody knew who did what" story.
+- This server: `If-Match` is optional (we must always send it); reassign has no version check (only client-side
+  warnings + detection via WS — a real fix needs the server); a 409 can arrive late without "who".
+
+### Q12. A 409 happened. What does the dispatcher see and do?
+**One-liner:** Who changed it and what changed, then: keep theirs (default), apply mine anyway (resend with the new
+version, after confirmation), or cancel. Never retry automatically.
+
+**Detail:**
+- An automatic retry with the new version = last write wins = the bug the lock prevents.
+- If the other change made mine impossible (route completed/cancelled), only "OK" is offered.
+- "Who": from the 409 body (immediate one) or the WS event with the matching `route._version` (delayed one).
+
+### Q13. Why does the REST client return results instead of throwing?
+**One-liner:** Because a 409 or 503 is normal flow here, not an exception — returning
+`{ ok: false, error: { kind } }` makes the compiler force every caller to handle it.
+
+**Detail:** alternatives were exceptions (TS doesn't track thrown types, easy to forget), `null` (loses why),
+a library (new dependency), a hybrid (two mechanisms). `fetch` itself doesn't throw on 4xx/5xx — only on "no answer"
+(like Python `requests` without `raise_for_status()`).
+
+### Q14. Why not retry writes automatically?
+**One-liner:** They aren't idempotent — after a timeout we don't know if the server already saved it, so a retry could
+create a route or send an alert twice.
+
+**Detail:** reads are retried automatically (503, network, timeout; Retry-After or backoff; max 3 attempts; wait cap
+10 s). Writes get a manual "Retry" button; if the retry gets a 409 caused by our own id, the first attempt succeeded.
+PATCH with `If-Match` is naturally safe (a repeat gets 409).
+
+### Q15. How does the circuit breaker work, and what does the dispatcher see?
+**One-liner:** After 3 failed requests in a row it stops calling the server for 10 s, shows the last data as "stale",
+then lets one probe through; success closes it again.
+
+**Detail:**
+- States: CLOSED → (3 failures) → OPEN → (cooldown over) → HALF-OPEN → probe ok → CLOSED / probe fails → OPEN.
+- It's passive — a gatekeeper checked on each call, like a decorator/middleware, not a background service.
+- It sits inside retry, so it counts every request and an open breaker answers instantly (`circuit_open`).
+- Dispatcher: a few seconds of retries, then a "stale since …" banner; the map keeps moving (SSE is separate);
+  the banner disappears by itself on recovery. Server: one request per 10 s while sick.
+- It's a bonus feature in the brief, but listed under "Performance & Resilience" in the grading.
+
+### Q16. How do you know the live stream is dead, and what happens then?
+**One-liner:** A watchdog: any message (heartbeat every 15 s, telemetry every 2 s) resets a 20 s timer; if it fires,
+we close the connection and reconnect with backoff 1 s → 2 s → … → 30 s, forever, and the UI shows "live data lost
+since …".
+
+**Detail:**
+- `EventSource` reconnects by itself after a short drop, but gives up for good on an error status (CLOSED) and
+  can't notice a silent "open but dead" connection — the two gaps we fill.
+- A hanging attempt (never opens) is caught by the same watchdog. Backoff resets after a successful open.
+- Why heartbeat-based (20 s) and not 10 s from the telemetry rhythm: the heartbeat is the server's explicit
+  liveness signal, so no false alarms if telemetry slows. Cost: up to ~20 s frozen → "last update N s ago" in UI.
+- No replay (server sends no event ids): positions recover next tick, path keeps a gap, fleet snapshot reloaded.
+- Invalid messages are dropped and counted, never thrown. Real product: reconnect counts → monitoring.
+
+### Q17. Walk me through the WebSocket lifecycle. What happens on a reconnect?
+**One-liner:** Open → `register_dispatcher` (with the id saved in sessionStorage) → `registered` → ping every 10 s;
+if the socket closes, misses a pong (5 s) or never registers (10 s) → reconnect with backoff, re-register with the
+SAME id, and re-send the truck we're viewing.
+
+**Detail:**
+- Same id after reconnect/reload = the same dispatcher for others (not a new person). sessionStorage = per tab,
+  so two tabs are two dispatchers (needed for conflict testing); localStorage would merge them.
+- Ping/pong because the WS is often silent for minutes — a passive watchdog can't tell "quiet" from "dead".
+  The round trip doubles as latency for observability.
+- No outgoing queue: presence is state, so only the latest viewed truck is re-sent (a queue would replay stale
+  "viewing 3, 5, 7").
+- Unregistered sockets still receive broadcasts on this server (Phase 0 finding), but we treat the client as
+  ready only after `registered`, because REST writes need the id.
+- Ghost `dispatcher_left` about ourselves after a reconnect → handled in the presence logic (Phase 6).
+
+### Q18. `/api/fleet` returned 503 three times in a row. What does the dispatcher see, and what does the server get?
+**One-liner:** A "stale since …" banner over the last fleet data while the map keeps moving (SSE is separate); the
+breaker sends nothing for 10 s, then one probe — so at most one fleet request per 10 s until a probe succeeds.
+
+**Detail:** the 3 failures can come from one retried call (the breaker sits inside retry and counts each request).
+While open, calls fail instantly inside the app (`circuit_open`). Probe ok → closed, banner gone; probe fails →
+open for another 10 s. Don't confuse with SSE reconnect backoff (1 s → 30 s cap) — a different mechanism.
+
+*My answer: mixed it up with the SSE reconnect ("one request every 30 s forever").*
+
+### Q19. Why ping/pong on the WebSocket but only watch the heartbeat on SSE?
+**One-liner:** Because of who sends the keep-alive: the SSE server sends a heartbeat every 15 s by itself, so we can
+wait passively; the WS server sends nothing on its own and the channel can be quiet for minutes, so we must ask.
+
+**Detail:** WS being two-way is what *allows* a ping; the *need* is the missing server heartbeat. Ping every 10 s,
+no pong in 5 s → dead → reconnect. The round trip doubles as latency for observability.
+
+*My answer: "WS is two-directional so it needs ping/pong" — close, but the key reason is the missing server heartbeat.*
+
+### Q20. A create-route request times out and the dispatcher clicks Retry. What can go wrong and how is it handled?
+**One-liner:** The first request may have succeeded (only the answer was lost), so a retry could duplicate it. We never
+retry writes automatically; on a manual retry, a 409 "truck already assigned" whose `assignedBy` is OUR id means the
+first attempt worked → show success.
+
+**Detail:**
+- True idempotency needs server support (e.g. an `Idempotency-Key` header) — this server has none, so the client
+  can only detect, not prevent.
+- PATCH with `If-Match` is naturally safe (a repeat gets 409 because the version moved).
+- Send alert has no protection → could be sent twice: documented limitation; real fix = idempotency key on server.
+
+*My answer: "make it idempotent and ignore the repeat" — right risk, but we can't make the server idempotent; we
+detect "it was me" from the 409 instead.*

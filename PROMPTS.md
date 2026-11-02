@@ -114,3 +114,35 @@ and never submit code I can't explain.
 
 **My notes**
 - _(add your own notes here)_
+
+---
+
+## Phase 3 — Transport
+
+**How I worked with the AI this phase**
+- Asked for a remaining-phases estimate; pushed back that 18–26 h was too much → we agreed a faster mode
+  (tests + code together for simple items, tests-first only for tricky logic), estimate ~10–14 h.
+- For each item: asked to understand what it means, how it will be implemented, and the options/trade-offs —
+  choice by choice, with alternatives.
+
+**What I questioned / changed**
+- Asked for SSE vs WebSocket differences, and what optimistic locking and `If-Match` mean ("explain like I'm
+  stupid"); clarified that `_version` is the data field and `If-Match` the header we send.
+- Asked what a dispatcher can do after a conflict → keep theirs / apply mine / cancel, never auto-retry.
+- Challenged "no retry for writes" ("as a user I'd want to retry") → automatic retry for reads only, manual Retry
+  for writes, detect "my own earlier attempt succeeded".
+- Asked whether the server really sends Retry-After → yes for its 503, but we fall back to backoff without it.
+- Noticed the circuit breaker is a **bonus** feature and asked to finish main tasks before bonuses; decided to
+  finish the breaker anyway since it's already started (and is listed in the grading).
+- Asked what really happens with a passive breaker → step-by-step timeline.
+- Chose heartbeat-based dead-connection detection for SSE (20 s) over the AI's 10 s telemetry-based recommendation.
+- Asked whether the dispatcher is alerted when the stream is down → connection badge + banner (Phase 4) and
+  counters for observability.
+- Declined a temporary "live connection" demo page; kept the original plan.
+- **Review loop:** asked the AI to spawn a reviewer subagent and iterate until both agree. Round 1: 4 findings
+  (a real circuit-breaker bug — past `retryAtMs` during a probe — plus 3 test gaps), all verified and fixed with
+  tests. Round 2: 1 new MEDIUM (a proxy's HTML 503 was treated as invalid data → no retry/breaker), fixed with
+  tests. Round 3: approved. (The first reviewer run was lost when the session restarted; it was re-launched.)
+
+**My notes**
+- _(add your own notes here)_
