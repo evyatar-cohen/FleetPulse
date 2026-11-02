@@ -4,6 +4,7 @@
 // SSE reconnect (missed data can't be replayed). stop() cleans up everything.
 import type { WsServerMessage } from '../domain/events';
 import { isRouteMessage } from '../domain/routes';
+import { createRouteActions, type RouteActions } from './routeActions';
 import type { FleetState } from '../store/fleetStore';
 import { CircuitBreaker } from '../transport/circuitBreaker';
 import type { ConnectionStatus } from '../transport/connection';
@@ -29,8 +30,10 @@ export interface StoreAccess {
 }
 
 export interface RunningApp {
-  // Used by UI actions (routes, alerts) in later phases.
+  // Used by UI actions (alerts) in later phases.
   rest: RestClient;
+  // Create / update / reassign routes (Phase 5).
+  routeActions: RouteActions;
   ws: WsClient;
   stop: () => void;
 }
@@ -136,6 +139,7 @@ export function startApp(dispatcherName: string, deps: AppDependencies, store: S
 
   return {
     rest,
+    routeActions: createRouteActions(rest, store),
     ws,
     stop: () => {
       stopped = true;

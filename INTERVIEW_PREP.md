@@ -384,3 +384,18 @@ the route changed since the dialog opened; after sending, flag another dispatche
   reassign of that route within ±5 s → "Bob also reassigned this route at the same time — it's now on Truck Echo".
 - The target-busy 409 still protects one case: two dispatchers moving routes onto the same free truck.
 - Window trade-off: shorter misses slow clashes, longer flags unrelated reassigns.
+
+### Q31. Two dispatchers clash on the same route. What does EACH of them see?
+**One-liner:** The winner sees a normal success; the loser gets a dialog: "<who> <what they did> while your change was
+being saved — your change was NOT applied", with the route as it is now vs. what they wanted, and Keep theirs /
+Apply mine (only if still possible). Both screens converge from the WS events, and both see the change in the
+route history.
+
+**Detail:**
+- Status clash (both press "Start"): both PATCH with `If-Match: 1`; the server applies the first after its delay and
+  the second gets a delayed 409 → who/what from the audit log (WS event of version 2).
+- Final actions (Complete/Cancel) ask for confirmation first; if the other dispatcher finished the route, "Apply mine"
+  isn't offered.
+- Reassign clash (no server lock): the dialog warns if the route changed since it opened; after success, a clash
+  within ±5 s shows "<who> also reassigned this route at the same time — it's now on <truck>".
+- Nothing is shown optimistically, so nobody ever sees a change that didn't happen.

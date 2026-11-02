@@ -448,3 +448,14 @@ Feeds the README and interview prep.
 - **Why:** the brief asks for "confirmation on critical actions"; cancel/complete are final and reassign moves work
   between drivers (and has no server lock). Start is routine and easy to correct — confirming it would train
   dispatchers to click "OK" without reading.
+
+### D46. Routes UI
+- **Decision:** routes panel (allowed next actions only, per-route "⏳ saving…", inline outcome messages), new-route
+  form (unavailable trucks shown greyed out with the reason), confirm dialog for complete/cancel, reassign dialog
+  (itself the confirmation: an explicit "Reassign to <truck>" button; remembers the version it opened with), conflict
+  dialog (who + what + now vs. yours; Keep theirs / Apply mine), audit log panel (newest first, "from snapshot"
+  marked). Route components read trucks through the 1 s throttled hook — they only need names/route ids, so telemetry
+  must not redraw them every 2 s. `startApp` returns the route actions; App passes them down as props.
+- **Alternatives:** `window.confirm` (blocking, unstyled, no context); React Context for actions (one consumer — not
+  worth it yet).
+- **Limitation:** until Phase 6, other dispatchers are shown by id ("You" for ourselves) — names need presence data.
