@@ -17,3 +17,6 @@ export const FUEL_CONFIRM_WINDOW_MS: number = 6000;
 // The fuel rate check allows change in proportion to the time since the previous reading, but only up to this
 // gap (2 readings). After a longer gap we can't judge a big change, so it waits for the confirm window instead.
 export const FUEL_MAX_RATE_GAP_MS: number = 4000;
+
+// Trusted sensor samples kept per truck for the detail charts: 150 × 2 s ≈ 5 minutes. Fixed memory over hours.
+export const MAX_HISTORY_SAMPLES: number = 150;

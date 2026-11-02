@@ -1,13 +1,19 @@
 // Pure display helpers for routes, conflicts and the audit log: turn ids and actions into the sentences dispatchers read.
 import type { AuditAction, FieldChange } from '../domain/auditLog';
+import { nameFromDispatcherId } from '../domain/dispatcherIdentity';
 import type { Trucks } from '../domain/fleet';
 import type { RouteStatus } from '../domain/models';
 
-// Until presence (Phase 6) gives names, show "You" for us and the dispatcher id for others.
-export function dispatcherLabel(dispatcherId: string | null, myDispatcherId: string | null): string {
+// "You" for us; otherwise the dispatcher's name: from dispatcher_joined (kept after they leave), else decoded from the
+// id itself (see domain/dispatcherIdentity.ts), else the id.
+export function dispatcherLabel(
+  dispatcherId: string | null,
+  myDispatcherId: string | null,
+  names: Readonly<Record<string, string>> = {},
+): string {
   if (dispatcherId === null) return 'another dispatcher';
   if (dispatcherId === myDispatcherId) return 'You';
-  return dispatcherId;
+  return names[dispatcherId] ?? nameFromDispatcherId(dispatcherId) ?? dispatcherId;
 }
 
 export function truckLabel(truckId: string | null, trucks: Trucks): string {

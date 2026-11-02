@@ -4,6 +4,7 @@
 import type { ReactElement } from 'react';
 import { truckStatus, type TruckView } from '../../domain/fleet';
 import type { Location } from '../../domain/models';
+import { useFleetStore } from '../../store/fleetStore';
 import { STATUS_COLORS } from '../format';
 import { createProjection, MAP_SIZE, type Projection } from '../mapProjection';
 import { selectTrucks, sortedTrucks } from '../selectors';
@@ -42,12 +43,20 @@ function TruckPath({ truck, projection }: { truck: TruckView; projection: Projec
   return <polyline points={points.join(' ')} className="truck-path" stroke={STATUS_COLORS[truckStatus(truck)]} />;
 }
 
-function TruckMarker({ truck, projection }: { truck: TruckView; projection: Projection }): ReactElement | null {
+interface TruckMarkerProps {
+  truck: TruckView;
+  projection: Projection;
+  selected: boolean;
+  onSelect: (truckId: string) => void;
+}
+
+function TruckMarker({ truck, projection, selected, onSelect }: TruckMarkerProps): ReactElement | null {
   const current = truck.telemetry?.current;
   if (current === undefined) return null;
   const { x, y } = projection.toPoint(current.location);
   return (
-    <g>
+    <g className="clickable" onClick={() => onSelect(truck.id)}>
+      {selected && <circle cx={x} cy={y} r={13} className="selected-ring" />}
       <circle cx={x} cy={y} r={7} fill={STATUS_COLORS[truckStatus(truck)]} className="truck-marker">
         <title>{`${truck.name} — ${truckStatus(truck)}`}</title>
       </circle>
@@ -58,8 +67,9 @@ function TruckMarker({ truck, projection }: { truck: TruckView; projection: Proj
   );
 }
 
-export function FleetMap(): ReactElement {
+export function FleetMap({ onSelect }: { onSelect: (truckId: string) => void }): ReactElement {
   const trucks = sortedTrucks(useThrottledStore(selectTrucks));
+  const selectedTruckId = useFleetStore((state) => state.selectedTruckId);
   const projection = createProjection(allLocations(trucks));
 
   return (
@@ -71,7 +81,13 @@ export function FleetMap(): ReactElement {
           <TruckPath key={`path-${truck.id}`} truck={truck} projection={projection} />
         ))}
         {trucks.map((truck) => (
-          <TruckMarker key={`marker-${truck.id}`} truck={truck} projection={projection} />
+          <TruckMarker
+            key={`marker-${truck.id}`}
+            truck={truck}
+            projection={projection}
+            selected={truck.id === selectedTruckId}
+            onSelect={onSelect}
+          />
         ))}
       </svg>
       <div className="legend">

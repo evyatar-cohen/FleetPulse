@@ -1,9 +1,10 @@
-// Header: who I am, live-connection badges (SSE telemetry, WebSocket), and the stale-data banner.
+// Header: who I am, live-connection badges (SSE telemetry, WebSocket), who else is online, and the stale-data banners.
 // Reads rarely-changing store slices directly (no throttling needed).
 import type { ReactElement } from 'react';
 import { useFleetStore } from '../../store/fleetStore';
 import type { ConnectionStatus } from '../../transport/connection';
 import { formatTime } from '../format';
+import { dispatcherLabel } from '../routeFormat';
 
 const BADGES: Readonly<Record<ConnectionStatus, { icon: string; label: string; className: string }>> = {
   idle: { icon: '○', label: 'Not connected', className: 'badge-down' },
@@ -29,6 +30,9 @@ export function Header(): ReactElement {
   const wsStatus = useFleetStore((state) => state.wsStatus);
   const fleetStale = useFleetStore((state) => state.fleetStale);
   const fleetFetchedAt = useFleetStore((state) => state.fleetFetchedAt);
+  const presence = useFleetStore((state) => state.presence);
+  const names = useFleetStore((state) => state.dispatcherNames);
+  const others = Object.values(presence).map((dispatcher) => dispatcherLabel(dispatcher.id, dispatcherId, names));
 
   return (
     <header>
@@ -39,6 +43,9 @@ export function Header(): ReactElement {
         </span>
         <ConnectionBadge title="Telemetry" status={sseStatus} />
         <ConnectionBadge title="Dispatch" status={wsStatus} />
+        <span className="online" title="Other dispatchers online">
+          👥 Online: You{others.length > 0 ? `, ${others.join(', ')}` : ''}
+        </span>
       </div>
       {fleetStale && (
         <div className="banner banner-warn" role="status">

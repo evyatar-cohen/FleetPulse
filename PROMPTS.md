@@ -217,3 +217,33 @@ and never submit code I can't explain.
 
 **My notes**
 - _(add your own notes here)_
+
+---
+
+## Phase 6 + 7 — Presence and vehicle detail panel
+
+**How I worked with the AI this phase**
+- Asked to verify the remaining required features against the brief. The AI's audit found missing items: a low-fuel
+  alert (the brief's "don't trigger false low-fuel alerts" implies one), presence, the presence/ghost test, the detail
+  panel, and the README. I asked to add the low-fuel alert first and to verify it with tests, since the server's fuel
+  takes hours to get low.
+- Asked for the dashboard to fit one screen (map and trucks smaller, routes beside them).
+- Phase 6 and 7 were built together (both start from "click a truck") while I let the AI work autonomously.
+
+**What the AI produced**
+- Ghost-safe presence (connection counting per id), names instead of ids everywhere, "who is viewing" tags, an online
+  list; a detail drawer with trusted-value sparklines, mileage, route details, alerts (send + list).
+- When I said Phase 5 was merged, the AI found the PR had never been created (the branch was only pushed) — after it
+  had already deleted the local branch; it restored it from the commit (nothing lost) and based the next branch on it.
+- **Bug I found in the browser:** a second tab showed only itself, not the dispatcher in the first tab. The AI had
+  documented this as a known limitation ("server never sends an online list"); I didn't accept it as a limitation. We
+  agreed on a fix: clients answer `dispatcher_joined` by re-sending `viewing_truck` (empty truckId = "not viewing").
+  The AI also used the empty value to announce closing the detail panel, removing another documented limitation (D53).
+- After that fix, the newer tab showed the older dispatcher by **id**, not name. The AI listed 3 options (name inside
+  the id / shared localStorage / keep the limitation). I asked how this works in real life (answer: names from login
+  + a server presence snapshot, e.g. in Redis) and why the reassign conflict showed a name. The AI explained it only
+  worked because the conflict was seen in the OLDER tab — the same gap applies to conflicts and the audit log. I chose
+  "name inside the id" (D54) because it fixes all of them; localStorage was rejected because it only works in one browser.
+
+**My notes**
+- _(add your own notes here)_

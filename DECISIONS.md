@@ -483,3 +483,75 @@ Feeds the README and interview prep.
   alerted after the 6 s window. Threshold per vehicle type (tank size).
 - **Verification:** the mock server's real fuel takes hours to get low and never goes below 5% — the behavior is
   verified with tests driven through the real fuel detector (incl. the captured glitch sequence), not in the browser.
+
+---
+
+## Phase 6 + 7 — Presence and vehicle detail panel
+
+### D50. Presence by counting connections per dispatcher id (QUIRK #6 ghost)
+- **Decision:** pure `domain/presence.ts`. `dispatcher_joined` → connections + 1; `dispatcher_left` → − 1; online while
+  > 0. Leaves about ourselves are ignored; a leave for an unknown id changes nothing (no negative counts);
+  `dispatcher_viewing` from an unknown id adds them with 1 connection (they joined before us). Names are remembered
+  after a dispatcher leaves (routes/history still mention them).
+- **Alternatives:** compare timestamps (fails: the ghost leave is NEWER than the rejoin); ignore leaves for 10 s after a
+  join (a magic number tied to this server's delay).
+- **Why:** the server sends exactly one joined and one left per socket, so counting is exact — like reference counting.
+- **Limitation (fixed by D53):** the server never sends a list of who's online, so at first someone who joined BEFORE
+  us was invisible until they acted. D53 makes everyone announce themselves when a newcomer joins.
+- **Remaining edge:** if someone online before us reconnects (joined → 1) and their ghost leave of the OLD socket
+  arrives (→ 0), they briefly disappear until their next announce/action (we never counted their old connection).
+  Real fix: a "who's online" snapshot from the server.
+
+### D51. One "select truck" action drives the detail panel AND presence
+- **Decision:** clicking a truck (list row or map marker) calls `RunningApp.selectTruck`: stores `selectedTruckId`
+  (opens the detail drawer) and sends `viewing_truck` over the WS. Other dispatchers see "👁 <name>" on that truck and
+  in its detail panel. Deselecting (closing the panel) sends `viewing_truck` with an empty truckId ("not viewing",
+  see D53), so the viewer tag disappears for the others.
+- **Why:** one user intent, one place that performs both effects; components don't talk to the WS directly.
+
+### D52. Detail panel: trusted-value charts, mileage on demand, alerts
+- **Charts:** each accepted reading appends a sample of TRUSTED values (speed/fuel from the detectors, raw engine
+  temperature) to a per-truck history capped at 150 samples (~5 min) — so charts never show 999 km/h or a glitch 0%.
+  Drawn as small SVG sparklines (no chart library); a missing trusted value breaks the line instead of inventing data;
+  fuel uses a fixed 0–100 scale.
+- **Mileage:** only in `GET /api/fleet/:id` → loaded when the panel opens and every 30 s while open (a read → retried);
+  answers arriving after the panel switched truck are ignored.
+- **Alerts:** message 3–200 chars (trimmed), severity info/warning/critical; critical needs confirmation. ONE request
+  (POST is not idempotent — a lost answer must not send the alert twice). Alerts arrive back via the WS `truck_alert`
+  broadcast (kept, bounded to 50, de-duplicated by id) and are listed in the truck's panel.
+- **Alternatives:** a chart library (recharts — new dependency for 3 sparklines); polling mileage for all trucks.
+
+
+### D53. Late joiners see who's already online: everyone announces on `dispatcher_joined`
+- **Problem (found in the browser):** a tab opened later showed only itself. The server sends `dispatcher_joined` only
+  to the OTHER clients and has no "who's online" message, so a newcomer never hears about earlier dispatchers.
+- **Decision:** when we receive `dispatcher_joined` for someone else, we re-send our `viewing_truck` (`WsClient.announcePresence()`).
+  The server forwards it to everyone as `dispatcher_viewing`, and the newcomer adds us (D50: an unknown viewer counts
+  as 1 connection). Not viewing a truck → we send an empty truckId, which `domain/presence.ts` reads as
+  "online, viewingTruckId null". The same empty value is sent when the detail panel closes (D51).
+- **Alternatives:** poll/refetch a list (no such endpoint); send `register_dispatcher` again (would broadcast a second
+  `dispatcher_joined` and break connection counting); a new message type (server ignores unknown types).
+- **Trade-off:** `dispatcher_viewing` has no name → earlier dispatchers were shown by id (fixed by D54). With N dispatchers, each join causes N−1 small messages — fine at dispatcher-team scale. Uses a
+  convention (empty truckId) that only our client understands; an older client would show "viewing ''" (no such truck,
+  so no tag appears).
+
+### D54. The dispatcher's name travels inside their id
+- **Problem (found in the browser):** a later tab showed earlier dispatchers by id — in presence AND in conflicts,
+  the audit log and route lists. The only message with a name is `dispatcher_joined`, sent only to clients already
+  connected; route events, 409 bodies and `dispatcher_viewing` carry ids only.
+- **Decision:** we choose our own id at first register (the server accepts any `dispatcherId`):
+  `dispatcher_<8 random hex>.<name as base64url>`. Pure `domain/dispatcherIdentity.ts` encodes/decodes it;
+  `dispatcherLabel()` (used by every screen) tries: name from `dispatcher_joined` → name decoded from the id → the id.
+  The id is kept in sessionStorage as before (same identity after a reload); a saved id that doesn't carry the
+  current name is replaced.
+- **Alternatives:** shared localStorage id → name map (only works for tabs in the same browser — hides the problem
+  in our test setup, fails for real dispatchers on other machines); encode the name in `viewing_truck`'s truckId
+  (abuses a field with another meaning, only fixes presence, not conflicts/audit log); keep ids (D53 limitation).
+- **Why:** one small pure module fixes names everywhere, for anyone whose id we ever see — even dispatchers who left
+  before we opened the app. No server change.
+- **Trade-off:** longer ids; the name is fixed at registration (a new name → a new identity); the name is
+  client-provided — the same trust as the server's own `name` field. Decoded names are treated as untrusted input:
+  invalid base64/UTF-8 or > 40 characters → ignored (show the id); React escapes them when rendering. Ids made by
+  another client/server (no `.`) just show the id.
+- **Real-world fix:** names come from login (user table / auth token) and the server sends a presence snapshot to
+  new clients (in Redis when there are several server instances); clients never invent identities.

@@ -201,6 +201,32 @@ describe('WebSocket client — viewing truck (state, not a queue)', () => {
   });
 });
 
+describe('WebSocket client — announcing presence', () => {
+  it('announcePresence() re-sends the truck we view, or an empty truckId when viewing none', () => {
+    const client = makeClient();
+    client.connect();
+    openAndRegister();
+    client.announcePresence();
+    client.setViewingTruck('truck_3');
+    client.announcePresence();
+    client.setViewingTruck(null);
+    expect(latest().sentOfType('viewing_truck')).toEqual([
+      { type: 'viewing_truck', truckId: '' },
+      { type: 'viewing_truck', truckId: 'truck_3' },
+      { type: 'viewing_truck', truckId: 'truck_3' },
+      { type: 'viewing_truck', truckId: '' },
+    ]);
+  });
+
+  it('before registering, announcePresence() sends nothing (no id yet → the server would forward a null id)', () => {
+    const client = makeClient();
+    client.connect();
+    latest().emitOpen();
+    client.announcePresence();
+    expect(latest().sentOfType('viewing_truck')).toEqual([]);
+  });
+});
+
 describe('WebSocket client — close', () => {
   it('close() stops everything: socket closed, no pings, no reconnect, late messages ignored', () => {
     const client = makeClient();

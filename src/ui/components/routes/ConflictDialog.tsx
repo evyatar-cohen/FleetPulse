@@ -20,7 +20,8 @@ export function ConflictDialog({ conflict, attempt, onKeepTheirs, onApplyMine }:
   // Truck names/route ids only — read through the 1 s throttle so telemetry doesn't redraw this every 2 s.
   const trucks = useThrottledStore(selectTrucks);
   const myId = useFleetStore((state) => state.dispatcherId);
-  const who = dispatcherLabel(conflict.who, myId);
+  const names = useFleetStore((state) => state.dispatcherNames);
+  const who = dispatcherLabel(conflict.who, myId, names);
   const what = conflict.theirChange === null ? 'changed this route' : describeAuditAction(conflict.theirChange, trucks);
   const current = conflict.currentRoute;
 

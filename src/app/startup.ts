@@ -1,10 +1,14 @@
 // Composition root: the one place that creates the transport clients and wires them to the store.
-// Startup order: WS connect → register → `registered` (our id → REST client) → load fleet + routes → SSE connect.
+// Startup order: create our dispatcher id (carries our name) → WS connect → register → `registered` (our id → REST
+// client) → load fleet + routes → SSE connect.
 // Then: fleet refresh every 30 s (retry + circuit breaker → "stale" flag), reload on `fleet_reset` and after an
 // SSE reconnect (missed data can't be replayed). stop() cleans up everything.
+import { makeDispatcherId, nameFromDispatcherId } from '../domain/dispatcherIdentity';
 import type { WsServerMessage } from '../domain/events';
+import { isPresenceMessage } from '../domain/presence';
 import { isRouteMessage } from '../domain/routes';
 import { createRouteActions, type RouteActions } from './routeActions';
+import { createTruckActions, type TruckActions } from './truckActions';
 import type { FleetState } from '../store/fleetStore';
 import { CircuitBreaker } from '../transport/circuitBreaker';
 import type { ConnectionStatus } from '../transport/connection';
@@ -30,10 +34,13 @@ export interface StoreAccess {
 }
 
 export interface RunningApp {
-  // Used by UI actions (alerts) in later phases.
   rest: RestClient;
   // Create / update / reassign routes (Phase 5).
   routeActions: RouteActions;
+  // Detail panel: truck detail (mileage) and sending alerts (Phase 7).
+  truckActions: TruckActions;
+  // Select a truck (detail panel) and tell other dispatchers we're viewing it (presence). null = deselect.
+  selectTruck: (truckId: string | null) => void;
   ws: WsClient;
   stop: () => void;
 }
@@ -112,8 +119,16 @@ export function startApp(dispatcherName: string, deps: AppDependencies, store: S
     }
     if (isRouteMessage(message)) {
       store.getState().applyRouteMessage(message);
+    } else if (isPresenceMessage(message)) {
+      // QUIRK #6: ghost-safe presence (connection counting) — see domain/presence.ts.
+      store.getState().applyPresenceMessage(message);
+      // A newcomer gets no list of who's online — announce ourselves so they can see us.
+      if (message.type === 'dispatcher_joined' && message.dispatcherId !== ws.id) {
+        ws.announcePresence();
+      }
+    } else if (message.type === 'truck_alert') {
+      store.getState().applyAlert(message.alert);
     }
-    // Presence messages are handled in Phase 6.
   }
 
   const ws = new WsClient({
@@ -134,12 +149,25 @@ export function startApp(dispatcherName: string, deps: AppDependencies, store: S
     },
   });
 
+  // We choose our own id (the server accepts it) so it carries our name — see domain/dispatcherIdentity.ts.
+  // A saved id is kept (same identity after a reload) unless it doesn't carry the current name.
+  const savedId = deps.idStore.load();
+  if (savedId === null || nameFromDispatcherId(savedId) !== dispatcherName) {
+    deps.idStore.save(makeDispatcherId(dispatcherName, crypto.randomUUID().slice(0, 8)));
+  }
+
   store.getState().setDispatcher(null, dispatcherName);
   ws.connect();
 
   return {
     rest,
     routeActions: createRouteActions(rest, store),
+    truckActions: createTruckActions(rest),
+    selectTruck: (truckId) => {
+      store.getState().selectTruck(truckId);
+      // null (panel closed) is sent as "not viewing" so our viewer tag disappears for the others.
+      ws.setViewingTruck(truckId);
+    },
     ws,
     stop: () => {
       stopped = true;

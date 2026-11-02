@@ -71,6 +71,8 @@ Grows as we go — each phase adds the new terms it introduces.
 - **Immutable update** — return a new object instead of changing the old one. React notices changes by
   comparing object identity, so mutating in place can leave the UI stale.
 
+- **Reference counting** — keep a count of open things (here: a dispatcher's connections); the thing is "gone"
+  only when the count reaches 0. How ghost leaves are handled.
 - **Registry** — a list/map the pipeline reads (vehicle profiles, sensor detectors). Adding a feature = adding an
   entry, not editing pipeline code (open/closed principle).
 
@@ -106,6 +108,8 @@ Grows as we go — each phase adds the new terms it introduces.
 - **StrictMode** — dev-only React wrapper that runs some code twice to reveal bugs (e.g. missing cleanup).
 - **Error boundary** — a React component that catches render errors in its children and shows a fallback
   instead of a blank page (must be a class component).
+- **Sparkline** — a small, simple line chart without axes, used in the detail panel.
+- **Drawer** — a panel that slides over the side of the page (the truck detail panel).
 - **SVG** — the browser's vector drawing format (`<circle>`, `<polyline>`); used for the map grid.
 - **Props** — the inputs a component receives (`<TruckRow truck={…} />`), like function arguments.
 - **`key`** — a stable id React needs on list items to track them between redraws.
@@ -152,3 +156,10 @@ Grows as we go — each phase adds the new terms it introduces.
 - **409 Conflict** — HTTP status for "your write conflicts with the current state".
 - **503 + Retry-After** — "server busy, try again in N seconds".
 - **concurrently** — npm tool that runs several commands in one terminal (server + Vite) with prefixed output.
+- **base64url** — base64 (bytes → text using A–Z a–z 0–9) with `-` and `_` instead of `+` and `/`, no `=` padding:
+  safe inside URLs and HTTP headers. Like Python's `base64.urlsafe_b64encode`. We use it to put the dispatcher's
+  name inside their id.
+- **`TextEncoder` / `TextDecoder`** — convert text ↔ UTF-8 bytes (Python: `str.encode('utf-8')` / `bytes.decode`).
+  Needed because `btoa` alone only accepts Latin-1 characters.
+- **Presence snapshot** — a "who's online right now" list a server sends to a newly connected client. Our server
+  has none, so our clients announce themselves (D53).

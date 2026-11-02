@@ -411,3 +411,65 @@ glitch; a real 0% that holds is confirmed after 6 s and alerted.
 - Unverified sudden rise (10% → 80%): the trusted value stays 10% until confirmed → the alert stays on (safe side).
 - Out-of-range readings (-5%) are sensor faults → trusted value kept.
 - Tested end to end through the real detector (the server's fuel takes hours to get low, never below 5%).
+
+---
+
+## Phase 6 + 7 — Presence and detail panel
+
+### Q33. A `dispatcher_left` arrives for Carol while she's connected again (ghost). How does the UI handle it?
+**One-liner:** We count connections per dispatcher id — joined +1, left −1, online while > 0 — so the late leave of her
+OLD connection only brings the count from 2 to 1 and she stays online; her real leave later brings it to 0.
+
+**Detail:**
+- Timestamps can't detect it: the ghost leave is newer than the rejoin.
+- The server sends exactly one joined and one left per socket, so the count is exact.
+- Leaves about ourselves are ignored (we can get our own ghost after reconnecting with the same id); leaves for
+  unknown ids change nothing (no negative counts).
+- Tested with the real captured sequence (Carol rejoined at +1 s, stale leave at +10 s).
+- The server never lists who's already online — we fix that by having everyone announce on `dispatcher_joined` (Q36).
+  Remaining edge: if someone online before us reconnects and their ghost leave arrives, they vanish until their next
+  announce, because we never counted their old connection.
+
+### Q34. How does "who is viewing which truck" work?
+**One-liner:** Clicking a truck selects it (opens the detail panel) and sends `viewing_truck`; other dispatchers get
+`dispatcher_viewing` and show "👁 <name>" on that truck.
+
+**Detail:** one action (`selectTruck`) does both, so components never talk to the WebSocket. The WS client remembers
+only the latest viewed truck and re-sends it after a reconnect (state, not a queue). There's no "stopped viewing"
+message on this server, so closing the panel sends `viewing_truck` with an empty truckId, which we read as
+"online, not viewing" — the tag disappears.
+
+### Q35. What do the detail charts show, and how do you keep them from growing forever?
+**One-liner:** The last ~5 minutes (150 samples) of TRUSTED speed/fuel and engine temperature per truck — appended on
+each accepted reading, oldest dropped — so they never show 999 km/h or a glitch 0%, and memory stays fixed.
+
+**Detail:** late/batch readings add no sample; a missing trusted value breaks the line; small SVG sparklines, no
+library. Mileage isn't in SSE — it's loaded from `GET /api/fleet/:id` when the panel opens and every 30 s.
+
+
+### Q36. You open the app in a second tab. How does it know who was already online?
+**One-liner:** The server doesn't tell it — so every running client answers a `dispatcher_joined` by re-sending its
+`viewing_truck`; the newcomer receives those as `dispatcher_viewing` and adds each sender as online.
+
+**Detail:**
+- `dispatcher_joined` goes only to clients that were already connected, and there is no "list online" message.
+- Not viewing a truck → we send an empty truckId; our presence reducer reads it as "online, viewing nothing".
+- An unknown viewer is added with 1 connection, so their later `dispatcher_left` removes them correctly.
+- We don't re-send `register_dispatcher`: that would broadcast a second joined and break the connection count.
+- `dispatcher_viewing` has no name — names come from the id itself (Q37).
+- Real-world fix: the server sends a presence snapshot to every new client (online list with names and viewed trucks,
+  kept in Redis if there are several server instances); clients wouldn't need to announce themselves.
+
+### Q37. The 409 body and route events only have dispatcher ids. How do you show WHO made the change by name?
+**One-liner:** Our client chooses its own dispatcher id with the name inside — `dispatcher_<random>.<base64url name>` —
+so any client can decode a name from any id it sees, even for someone who left before it opened.
+
+**Detail:**
+- The only message with a name is `dispatcher_joined`, and it goes only to clients already connected. A tab opened
+  later never gets it.
+- The server accepts any `dispatcherId` in `register_dispatcher`, so no server change. base64url is plain ASCII,
+  safe in the `X-Dispatcher-Id` header; UTF-8 first so any language works.
+- Lookup order in `dispatcherLabel()`: name from `dispatcher_joined` → name decoded from the id → the id.
+- Decoded names are untrusted: bad encoding or > 40 chars → ignored; React escapes text, so no HTML injection.
+- Weaknesses: longer ids; name fixed per identity; it's a client convention, not a server feature.
+- Real world: names come from login (user DB / auth token), and the server includes them in events and snapshots.

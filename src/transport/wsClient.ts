@@ -1,7 +1,8 @@
 // WebSocket client: presence (who's online, who views which truck) and route events, plus alerts and fleet_reset.
 // Data flow: WebSocket → JSON parse → Zod (WsServerMessageSchema) → onMessage(typed message) → store.
 // Lifecycle: open → send register_dispatcher (with our saved id) → `registered` → ready: ping every 10 s, re-send the
-// truck we're viewing. Dead socket (no pong, no `registered`, or closed) → reconnect with backoff, same identity.
+// truck we're viewing. Someone else joined → announcePresence() (the server never tells newcomers who's online).
+// Dead socket (no pong, no `registered`, or closed) → reconnect with backoff, same identity.
 import { WsServerMessageSchema, type WsClientMessage, type WsServerMessage } from '../domain/events';
 import { backoffDelay, parseMessage, RECONNECT_BACKOFF, type ConnectionStatus } from './connection';
 
@@ -23,6 +24,10 @@ export interface DispatcherIdStore {
   load(): string | null;
   save(dispatcherId: string): void;
 }
+
+// Our convention on the wire: an empty truckId in viewing_truck = "online, not viewing any truck".
+// The server forwards any truckId string as-is, so this needs no server change.
+export const NOT_VIEWING_TRUCK_ID = '';
 
 // WebSocket.readyState OPEN (standard).
 const READY_STATE_OPEN = 1;
@@ -103,12 +108,24 @@ export class WsClient {
     this.setStatus('closed');
   }
 
-  // Presence: remember the latest truck we view; send it now if ready, otherwise after (re)registering.
-  setViewingTruck(truckId: string): void {
+  // Presence: remember the latest truck we view (null = none); send it now if ready, otherwise after (re)registering.
+  setViewingTruck(truckId: string | null): void {
     this.viewingTruckId = truckId;
     if (this.registered) {
-      this.send({ type: 'viewing_truck', truckId });
+      this.sendViewing();
     }
+  }
+
+  // Tell everyone we're online (and what we view). Called when another dispatcher joins: the server sends them no
+  // list of who's already online, so without this a newcomer can't see us until we act.
+  announcePresence(): void {
+    if (this.registered) {
+      this.sendViewing();
+    }
+  }
+
+  private sendViewing(): void {
+    this.send({ type: 'viewing_truck', truckId: this.viewingTruckId ?? NOT_VIEWING_TRUCK_ID });
   }
 
   private open(): void {
@@ -156,7 +173,7 @@ export class WsClient {
     this.setStatus('open');
     this.startPinging();
     if (this.viewingTruckId !== null) {
-      this.send({ type: 'viewing_truck', truckId: this.viewingTruckId });
+      this.sendViewing();
     }
     this.options.onRegistered?.(dispatcherId);
   }
