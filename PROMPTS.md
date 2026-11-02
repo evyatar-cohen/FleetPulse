@@ -175,6 +175,9 @@ and never submit code I can't explain.
 - I asked why only the path since connecting is shown → the server keeps no history and its history endpoint
   returns random data; documented as a limitation.
 - The AI committed one checkpoint without asking first, and admitted it.
+- Code review (reviewer subagent): approved in round 1, no findings (it was cut off once by a usage limit and resumed).
+- I asked to make sure INTERVIEW_PREP holds the CORRECT answers, not mine → confirmed the structure and fixed
+  one stale model answer (Q7, outdated after the batch-as-history change).
 - The AI's browser checks raised two false alarms, both investigated before acting: badges "disconnected"
   (caused by Vite hot-reload while the AI edited files during the check) and a "long first path segment"
   (measured directly: ≤ 11 m — the subagent's script misread the SVG).

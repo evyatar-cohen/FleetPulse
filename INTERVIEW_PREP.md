@@ -1,6 +1,6 @@
 # Interview Prep — Cheat Sheet
 
-Questions from the end-of-phase checks, with model answers. Each answer has a **one-liner** (what to say first)
+Questions from the end-of-phase checks, with model answers (always the CORRECT answer, updated when the code changes). Each answer has a **one-liner** (what to say first)
 and **detail** (if they dig deeper). "My answer" notes where I was wrong or incomplete — those are the ones to review.
 
 ---
@@ -92,14 +92,18 @@ and it can warn when a new message type isn't handled.
 ## Phase 2 — Telemetry pipeline
 
 ### Q7. A GPS batch of 20 old readings arrives. What happens to the marker and the path?
-**One-liner:** The marker doesn't move (all readings are older than the current one); their positions are inserted
-into the path in timestamp order.
+**One-liner:** The marker doesn't move — a batch is history (readings buffered while the truck had no signal); its
+positions are added to the path only where physically plausible. The live telemetry in the same tick keeps the marker
+current.
 
 **Detail:**
-- A batch goes through the same `ingestReading()` as single readings — one code path.
-- Each reading is classified: older than current → `stale` → path only; newer → `accepted` → marker + path.
-- The path stays sorted, skips duplicate timestamps, and is capped at 300 points (~10 min) so memory stays fixed.
-- Limitation: the server jitters batch positions, so the path can zig-zag.
+- `ingestBatch()` never moves the marker or touches sensors. Exception: a truck with no position yet takes the
+  batch's newest reading as its first position.
+- Why not let a "newer" batch reading move it: the batch's newest timestamp can be a few ms newer than the last live
+  reading, but its position is random jitter (±~100 m) — it would jump the dot to a fake spot (found by a real-data
+  test, D38).
+- Path: a batch point is inserted (sorted by timestamp, no duplicate timestamps) only if reaching it from its
+  time-neighbors needs ≤ the vehicle's max speed; capped at 300 points (~10 min) so memory stays fixed.
 
 *My answer: correct.*
 
@@ -305,3 +309,33 @@ batch is treated as history — it never moves the marker.
   reading, so it was accepted and moved the marker. Fix: batch = history; only a truck with no position yet takes
   the batch's newest reading as current.
 - The current (live) position is always added — a long gap can legitimately make a big jump.
+
+### Q25. Telemetry every 2 s for 12 trucks + 30-reading bursts — what stops the UI from redrawing all the time?
+**One-liner:** Throttled rendering: the store updates on every event, but live-data components read it through a hook
+that redraws at most once per second (first change at once, a burst collapsed into one trailing redraw).
+Trade-off: up to 1 s display lag.
+
+**Detail:** plus Zustand selectors (only components using a slice redraw) and returning the same object when nothing
+changed (no redraw at all). Don't confuse with the path plausibility filter — that decides *which positions are
+drawn*, not *how often* the screen is redrawn.
+
+*My answer: described the path plausibility filter (a different feature).*
+
+### Q26. The fleet endpoint is failing and the breaker is open. When does the app try again, and what does the dispatcher see?
+**One-liner:** The next fleet load is scheduled for the end of the 10 s cooldown (that call is the single probe), not
+the normal 30 s; meanwhile a "Fleet data is stale since HH:MM:SS" banner shows the last known data, and the map keeps
+moving because SSE is a separate channel.
+
+**Detail:** probe ok → breaker closed, banner gone, back to the 30 s refresh; probe fails → open for another 10 s.
+The connection badges stay "● Live" — the WebSocket and SSE are fine; only the REST fleet snapshot is stale.
+
+*My answer: not sure.*
+
+### Q27. Why is `startApp()` one function outside React instead of code inside components?
+**One-liner:** One composition root keeps the startup order readable in one place, is testable without React (fake
+fetch/EventSource/WebSocket), and its `stop()` makes React StrictMode's dev double-start safe.
+
+**Detail:** components only show data and call actions; they don't create connections. If each component started
+what it needs, the order (WS → registered → fleet → SSE) would be scattered and things could start twice.
+
+*My answer: "to run things in order" — right, but only one of the three reasons.*
