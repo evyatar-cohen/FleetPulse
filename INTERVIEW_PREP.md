@@ -393,7 +393,9 @@ route history.
 
 **Detail:**
 - Status clash (both press "Start"): both PATCH with `If-Match: 1`; the server applies the first after its delay and
-  the second gets a delayed 409 → who/what from the audit log (WS event of version 2).
+  the second gets a delayed 409 → who/what from the audit log (WS event of version 2). Since both wanted the same
+  thing, the loser sees "Already done — Bob changed status assigned → in-progress just before you" (no decision
+  needed); a real conflict (different wishes) gets the full dialog.
 - Final actions (Complete/Cancel) ask for confirmation first; if the other dispatcher finished the route, "Apply mine"
   isn't offered.
 - Reassign clash (no server lock): the dialog warns if the route changed since it opened; after success, a clash

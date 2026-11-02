@@ -24,6 +24,22 @@ export function ConflictDialog({ conflict, attempt, onKeepTheirs, onApplyMine }:
   const what = conflict.theirChange === null ? 'changed this route' : describeAuditAction(conflict.theirChange, trucks);
   const current = conflict.currentRoute;
 
+  if (conflict.sameAsMine) {
+    // Both wanted the same thing (e.g. both pressed "Start") — inform, nothing to decide.
+    return (
+      <Modal title="Already done" onClose={onKeepTheirs}>
+        <p>
+          <strong>{who}</strong> {what} just before you — the route is already the way you wanted.
+        </p>
+        <div className="modal-actions">
+          <button type="button" onClick={onKeepTheirs} autoFocus>
+            OK
+          </button>
+        </div>
+      </Modal>
+    );
+  }
+
   return (
     <Modal title="Someone else changed this route first" onClose={onKeepTheirs}>
       <p>

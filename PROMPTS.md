@@ -184,3 +184,33 @@ and never submit code I can't explain.
 
 **My notes**
 - _(add your own notes here)_
+
+---
+
+## Phase 5 — Routes
+
+**How I worked with the AI this phase**
+- Approved each design choice (one store; seeding the audit log from the routes snapshot — my choice so dispatchers
+  see existing history; transition rules; blocking routes on maintenance trucks; pessimistic "saving…"; ±5 s reassign
+  clash window; which actions need confirmation).
+- Mid-phase I told the AI to work autonomously and only surface important/architecture decisions, writing every
+  decision and trade-off into DECISIONS.md and INTERVIEW_PREP.md so I don't lose information.
+- Asked to skip review subagents in later phases unless the AI is genuinely unsure (cost/time).
+
+**What the AI produced**
+- Routes state with version ordering, client-side audit log, route rules, conflict description (who/what/options),
+  route actions with outcomes, reassign race checks, and the routes UI (panel, form, dialogs, history).
+- It found that server.js's immediate 409 can name the route's CREATOR after a reassign
+  (`lastModifiedBy || assignedBy`), so the 409 body is trusted last.
+
+**What I questioned / changed**
+- Asked whether retries/errors are handled in the "saving…" time → clarified: one request, no automatic retry for
+  writes, manual Retry, and "already applied" detection.
+- While tracing tests the AI found its own gap (a manual Retry after a successful timed-out request was reported as
+  "invalid") and fixed it with a test.
+- A two-tab browser test (two dispatchers in headless Chrome) passed all 5 scenarios and revealed a UX issue: when
+  both pressed "Start", the loser was told "your change was NOT applied" although the route was as wanted → now
+  "Already done by <who>".
+
+**My notes**
+- _(add your own notes here)_

@@ -130,4 +130,15 @@ describe('Conflict — what can I do now', () => {
     const result = describeConflict(attempt, immediateBody, { routes: {}, auditLog: [], myDispatcherId: BOB });
     expect(result).toMatchObject({ kind: 'conflict', canApplyMine: false });
   });
+
+  it('both pressed "Start": they already made exactly my change → sameAsMine, nothing to apply', () => {
+    // Bob started the route (v2) while Alice's "Start" (If-Match: 1) was in flight.
+    const startedByBob: RouteMessage = { ...updated, route: { ...updated.route, _version: 2, status: 'in-progress', lastModifiedBy: BOB } };
+    if (startedByBob.type !== 'route_updated') throw new Error('fixture');
+    const result = describeConflict(aliceStarts, delayedBody, {
+      ...stateAfter(assigned, { ...startedByBob, updatedBy: BOB }),
+      myDispatcherId: ALICE,
+    });
+    expect(result).toMatchObject({ kind: 'conflict', who: BOB, sameAsMine: true, canApplyMine: false });
+  });
 });

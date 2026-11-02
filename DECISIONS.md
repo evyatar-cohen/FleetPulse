@@ -459,3 +459,10 @@ Feeds the README and interview prep.
 - **Alternatives:** `window.confirm` (blocking, unstyled, no context); React Context for actions (one consumer — not
   worth it yet).
 - **Limitation:** until Phase 6, other dispatchers are shown by id ("You" for ourselves) — names need presence data.
+
+### D47. "Already done by them" instead of a conflict when both wanted the same change
+- **Found by:** the two-tab browser test — both dispatchers pressed "Start"; the loser's dialog said "your change was
+  NOT applied" although the route was exactly as they wanted.
+- **Decision:** if the route at the conflicting version already has our wanted values (made by someone else),
+  `describeConflict` sets `sameAsMine` (no "apply mine"); the UI shows "Already done — <who> <what> just before you"
+  with a single OK.

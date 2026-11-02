@@ -48,6 +48,8 @@ export type ConflictDescription =
       currentRoute: Route | undefined;
       // Can our change still be applied on top of theirs (resent with the new version)?
       canApplyMine: boolean;
+      // They already made exactly the change we wanted (e.g. both pressed "Start") — nothing is lost, just inform.
+      sameAsMine: boolean;
     };
 
 // The audit entry of exactly this version of the route = the change that beat us. Newest entries are at the end.
@@ -127,8 +129,9 @@ export function describeConflict(
   }
   const { who, whoSource, theirChange } = found ?? { who: null, whoSource: 'unknown', theirChange: null };
 
+  const routeAlreadyHasMyChange = currentRoute !== undefined && routeHasChanges(currentRoute, attempt.changes);
   const wasMe = who !== null && who === context.myDispatcherId;
-  if (wasMe && currentRoute !== undefined && routeHasChanges(currentRoute, attempt.changes)) {
+  if (wasMe && routeAlreadyHasMyChange) {
     return { kind: 'already_applied', currentVersion };
   }
 
@@ -139,6 +142,7 @@ export function describeConflict(
     whoSource,
     theirChange,
     currentRoute,
-    canApplyMine: canApplyChanges(currentRoute, attempt.changes),
+    canApplyMine: !routeAlreadyHasMyChange && canApplyChanges(currentRoute, attempt.changes),
+    sameAsMine: routeAlreadyHasMyChange,
   };
 }
