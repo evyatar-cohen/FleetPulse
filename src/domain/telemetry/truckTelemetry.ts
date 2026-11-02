@@ -4,7 +4,7 @@
 import type { TelemetryReading } from '../models';
 import type { VehicleProfile } from '../vehicles';
 import { MAX_FUTURE_SKEW_MS } from './config';
-import { addToPath, type PathPoint } from './path';
+import { addToPath, isPlausiblePathPoint, type PathPoint } from './path';
 import { evaluateSensors, type SensorStates } from './sensors';
 
 export interface TruckTelemetry {
@@ -79,26 +79,60 @@ export function ingestReading(
   }
 
   // A late reading can't move the marker or change sensors, but it still tells us where the truck was.
-  if (outcome === 'stale' && state !== undefined) {
-    const path = addToPath(state.path, toPathPoint(reading));
-    if (path === state.path) {
-      return { state, outcome };
-    }
-    return { state: { ...state, path }, outcome };
+  if (outcome === 'stale') {
+    return { state: addHistoryPoint(state, reading, context), outcome };
   }
 
   return { state, outcome };
 }
 
-// QUIRK #1: a GPS batch is just many readings — the same rules apply to each one.
+// Adds a reading's position to the path WITHOUT moving the marker or touching sensors — only if it is physically
+// reachable from its time-neighbors (see isPlausiblePathPoint) and not from the future. Same object if unchanged.
+function addHistoryPoint(
+  state: TruckTelemetry | undefined,
+  reading: TelemetryReading,
+  context: IngestContext,
+): TruckTelemetry | undefined {
+  if (state === undefined || reading.timestamp > context.now + MAX_FUTURE_SKEW_MS) {
+    return state;
+  }
+  const point = toPathPoint(reading);
+  if (!isPlausiblePathPoint(state.path, point, context.profile.maxSpeedKmh)) {
+    return state;
+  }
+  const path = addToPath(state.path, point);
+  if (path === state.path) {
+    return state;
+  }
+  return { ...state, path };
+}
+
+function newestOf(readings: readonly TelemetryReading[]): TelemetryReading | undefined {
+  let newest: TelemetryReading | undefined;
+  for (const reading of readings) {
+    if (newest === undefined || reading.timestamp > newest.timestamp) {
+      newest = reading;
+    }
+  }
+  return newest;
+}
+
+// QUIRK #1: a GPS batch is buffered HISTORY (readings stored while the truck had no signal). It fills the path but
+// never moves the marker — its newest reading can be a few ms "newer" than the last live one and is just as noisy.
+// Exception: a truck with no position yet takes the batch's newest reading as its current one.
 export function ingestBatch(
   state: TruckTelemetry | undefined,
   readings: readonly TelemetryReading[],
   context: IngestContext,
 ): TruckTelemetry | undefined {
   let result = state;
+  if (result === undefined) {
+    const newest = newestOf(readings);
+    if (newest === undefined) return result;
+    result = ingestReading(undefined, newest, context).state;
+  }
   for (const reading of readings) {
-    result = ingestReading(result, reading, context).state;
+    result = addHistoryPoint(result, reading, context);
   }
   return result;
 }

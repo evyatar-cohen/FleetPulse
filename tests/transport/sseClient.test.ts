@@ -5,45 +5,11 @@
 //          reset after a successful open. close() stops everything.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SseEvent } from '../../src/domain/events';
-import { SSE_DEFAULTS, SseClient, type ConnectionStatus, type EventSourceLike } from '../../src/transport/sseClient';
+import { SSE_DEFAULTS, SseClient, type ConnectionStatus } from '../../src/transport/sseClient';
+import { CONNECTING, FakeEventSource, SSE_CLOSED as CLOSED } from '../helpers/fakes';
 import batchFixture from '../../fixtures/sse/gps_batch.json';
 import heartbeatFixture from '../../fixtures/sse/heartbeat.json';
 import telemetryFixture from '../../fixtures/sse/telemetry.json';
-
-const CONNECTING = 0;
-const OPEN = 1;
-const CLOSED = 2;
-
-// A fake EventSource the test drives by hand.
-class FakeEventSource implements EventSourceLike {
-  readyState = CONNECTING;
-  onopen: ((event: Event) => void) | null = null;
-  onmessage: ((event: MessageEvent) => void) | null = null;
-  onerror: ((event: Event) => void) | null = null;
-  closed = false;
-
-  constructor(readonly url: string) {}
-
-  close(): void {
-    this.readyState = CLOSED;
-    this.closed = true;
-  }
-
-  emitOpen(): void {
-    this.readyState = OPEN;
-    this.onopen?.(new Event('open'));
-  }
-
-  emitMessage(data: unknown): void {
-    const text = typeof data === 'string' ? data : JSON.stringify(data);
-    this.onmessage?.(new MessageEvent('message', { data: text }));
-  }
-
-  emitError(readyState: number): void {
-    this.readyState = readyState;
-    this.onerror?.(new Event('error'));
-  }
-}
 
 let sources: FakeEventSource[];
 let events: SseEvent[];

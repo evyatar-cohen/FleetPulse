@@ -88,16 +88,38 @@ Grows as we go — each phase adds the new terms it introduces.
 - **Exponential backoff** — wait longer after each failure (1 s, 2 s, 4 s…) to give a struggling server room.
 - **Getter (`get state()`)** — a property computed on read, like Python `@property`.
 
+- **Composition root** — the one place that creates the objects (clients, store) and wires them together
+  (`src/app/startup.ts`). Everything else just receives what it needs.
+- **`void promise`** — start an async function without waiting for it (fire-and-forget), and say so explicitly.
+
 ## React / frontend
 
 - **React** — UI library: the UI is a function of state; when state changes, React re-renders what changed.
 - **Component** — a function that returns UI (`function App(): ReactElement`).
 - **JSX / TSX** — HTML-like syntax inside JS/TS (`<h1>FleetPulse</h1>`). `.tsx` = TypeScript file with JSX.
+- **Hook** — a function starting with `use` that a component calls to get React features (state, effects, store
+  data). Must be called at the top of the component, same order every render.
+- **`useState`** — a value the component remembers between renders; setting it causes a redraw.
+- **`useEffect` + cleanup** — run code after the component appears (e.g. subscribe); the function it returns runs
+  when the component goes away (unsubscribe, clear timers). Like a context manager's `__enter__` / `__exit__`.
+- **Throttle** — run at most once per interval; extra calls collapse into one trailing call.
 - **StrictMode** — dev-only React wrapper that runs some code twice to reveal bugs (e.g. missing cleanup).
+- **Error boundary** — a React component that catches render errors in its children and shows a fallback
+  instead of a blank page (must be a class component).
+- **SVG** — the browser's vector drawing format (`<circle>`, `<polyline>`); used for the map grid.
+- **Props** — the inputs a component receives (`<TruckRow truck={…} />`), like function arguments.
+- **`key`** — a stable id React needs on list items to track them between redraws.
 - **Vite** — dev server + bundler. Serves the app at `localhost:5173` with instant reload; builds for production.
 - **Dev proxy** — Vite forwards `/api` and `/ws` to the mock server on `:3000`, so the client uses relative URLs.
 - **CORS** — browser rule blocking calls to another origin unless the server allows it. The mock server sends
   `Access-Control-Allow-Origin: *`; our proxy avoids cross-origin calls anyway.
+
+- **Store (Zustand)** — one place holding app state; `create()` makes it, `getState()` reads it outside React,
+  `set()` updates it.
+- **Selector** — a function picking the slice a component needs (`(state) => state.trucks['truck_1']`); the
+  component redraws only when that slice changes.
+- **Object identity** — React/Zustand detect change by "is it the same object?", not by comparing contents.
+  Returning the same object = "nothing changed".
 
 ## Testing
 
