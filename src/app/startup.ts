@@ -1,7 +1,9 @@
 // Composition root: the one place that creates the transport clients and wires them to the store.
-// Startup order: WS connect → register → `registered` (our id → REST client) → load fleet + routes → SSE connect.
+// Startup order: create our dispatcher id (carries our name) → WS connect → register → `registered` (our id → REST
+// client) → load fleet + routes → SSE connect.
 // Then: fleet refresh every 30 s (retry + circuit breaker → "stale" flag), reload on `fleet_reset` and after an
 // SSE reconnect (missed data can't be replayed). stop() cleans up everything.
+import { makeDispatcherId, nameFromDispatcherId } from '../domain/dispatcherIdentity';
 import type { WsServerMessage } from '../domain/events';
 import { isPresenceMessage } from '../domain/presence';
 import { isRouteMessage } from '../domain/routes';
@@ -146,6 +148,13 @@ export function startApp(dispatcherName: string, deps: AppDependencies, store: S
       sse.connect();
     },
   });
+
+  // We choose our own id (the server accepts it) so it carries our name — see domain/dispatcherIdentity.ts.
+  // A saved id is kept (same identity after a reload) unless it doesn't carry the current name.
+  const savedId = deps.idStore.load();
+  if (savedId === null || nameFromDispatcherId(savedId) !== dispatcherName) {
+    deps.idStore.save(makeDispatcherId(dispatcherName, crypto.randomUUID().slice(0, 8)));
+  }
 
   store.getState().setDispatcher(null, dispatcherName);
   ws.connect();

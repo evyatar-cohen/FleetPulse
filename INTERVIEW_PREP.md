@@ -456,4 +456,20 @@ library. Mileage isn't in SSE — it's loaded from `GET /api/fleet/:id` when the
 - Not viewing a truck → we send an empty truckId; our presence reducer reads it as "online, viewing nothing".
 - An unknown viewer is added with 1 connection, so their later `dispatcher_left` removes them correctly.
 - We don't re-send `register_dispatcher`: that would broadcast a second joined and break the connection count.
-- Weakness: earlier dispatchers have no name (that message carries none) → shown by id. Proper fix: a server snapshot.
+- `dispatcher_viewing` has no name — names come from the id itself (Q37).
+- Real-world fix: the server sends a presence snapshot to every new client (online list with names and viewed trucks,
+  kept in Redis if there are several server instances); clients wouldn't need to announce themselves.
+
+### Q37. The 409 body and route events only have dispatcher ids. How do you show WHO made the change by name?
+**One-liner:** Our client chooses its own dispatcher id with the name inside — `dispatcher_<random>.<base64url name>` —
+so any client can decode a name from any id it sees, even for someone who left before it opened.
+
+**Detail:**
+- The only message with a name is `dispatcher_joined`, and it goes only to clients already connected. A tab opened
+  later never gets it.
+- The server accepts any `dispatcherId` in `register_dispatcher`, so no server change. base64url is plain ASCII,
+  safe in the `X-Dispatcher-Id` header; UTF-8 first so any language works.
+- Lookup order in `dispatcherLabel()`: name from `dispatcher_joined` → name decoded from the id → the id.
+- Decoded names are untrusted: bad encoding or > 40 chars → ignored; React escapes text, so no HTML injection.
+- Weaknesses: longer ids; name fixed per identity; it's a client convention, not a server feature.
+- Real world: names come from login (user DB / auth token), and the server includes them in events and snapshots.

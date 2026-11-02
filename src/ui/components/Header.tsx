@@ -4,6 +4,7 @@ import type { ReactElement } from 'react';
 import { useFleetStore } from '../../store/fleetStore';
 import type { ConnectionStatus } from '../../transport/connection';
 import { formatTime } from '../format';
+import { dispatcherLabel } from '../routeFormat';
 
 const BADGES: Readonly<Record<ConnectionStatus, { icon: string; label: string; className: string }>> = {
   idle: { icon: '○', label: 'Not connected', className: 'badge-down' },
@@ -30,7 +31,8 @@ export function Header(): ReactElement {
   const fleetStale = useFleetStore((state) => state.fleetStale);
   const fleetFetchedAt = useFleetStore((state) => state.fleetFetchedAt);
   const presence = useFleetStore((state) => state.presence);
-  const others = Object.values(presence).map((dispatcher) => dispatcher.name ?? dispatcher.id);
+  const names = useFleetStore((state) => state.dispatcherNames);
+  const others = Object.values(presence).map((dispatcher) => dispatcherLabel(dispatcher.id, dispatcherId, names));
 
   return (
     <header>

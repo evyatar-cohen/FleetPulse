@@ -5,6 +5,7 @@
 import { describe, expect, it } from 'vitest';
 import { FleetResponseSchema } from '../../src/domain/api';
 import { applyFleetSnapshot } from '../../src/domain/fleet';
+import { makeDispatcherId } from '../../src/domain/dispatcherIdentity';
 import { describeAuditAction, dispatcherLabel, needsConfirmation, statusActionLabel } from '../../src/ui/routeFormat';
 import fleetFixture from '../../fixtures/rest/fleet_200.json';
 
@@ -16,6 +17,12 @@ describe('Route texts', () => {
     expect(dispatcherLabel('d1', 'd1')).toBe('You');
     expect(dispatcherLabel('d2', 'd1')).toBe('d2');
     expect(dispatcherLabel(null, 'd1')).toBe('another dispatcher');
+  });
+
+  it('a dispatcher we never saw join → name decoded from their id; a known name wins', () => {
+    const bobId = makeDispatcherId('Bob', 'b0b0b0b0');
+    expect(dispatcherLabel(bobId, 'd1')).toBe('Bob');
+    expect(dispatcherLabel(bobId, 'd1', { [bobId]: 'Robert' })).toBe('Robert');
   });
 
   it('audit actions read as sentences with truck names', () => {

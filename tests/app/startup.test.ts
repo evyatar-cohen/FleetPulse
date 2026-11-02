@@ -5,6 +5,7 @@
 //          reconnect; stop() closes everything and stops refreshing.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { FLEET_REFRESH_MS, startApp, type RunningApp } from '../../src/app/startup';
+import { makeDispatcherId, nameFromDispatcherId } from '../../src/domain/dispatcherIdentity';
 import { useFleetStore } from '../../src/store/fleetStore';
 import type { FetchFn } from '../../src/transport/restClient';
 import { FakeEventSource, FakeWebSocket, jsonResponse, memoryIdStore, SSE_CLOSED } from '../helpers/fakes';
@@ -18,6 +19,7 @@ let fleetRequests: RequestInit[];
 // Next responses for GET /api/fleet; when empty → 200 with the fixture.
 let fleetQueue: Response[];
 let app: RunningApp | null;
+let idStore: ReturnType<typeof memoryIdStore>;
 
 const fetch: FetchFn = async (url, init) => {
   if (url === '/api/fleet') {
@@ -49,7 +51,7 @@ function start(): RunningApp {
         sockets.push(socket);
         return socket;
       },
-      idStore: memoryIdStore(),
+      idStore,
       wsUrl: 'ws://localhost:5173/ws',
     },
     useFleetStore,
@@ -81,6 +83,7 @@ beforeEach(() => {
   fleetRequests = [];
   fleetQueue = [];
   app = null;
+  idStore = memoryIdStore();
   useFleetStore.getState().resetFleet();
   useFleetStore.getState().setFleetStale(false);
 });
@@ -122,6 +125,30 @@ describe('Startup order', () => {
       timestamp: Date.now(),
     });
     expect(useFleetStore.getState().routes['route_new']).toBeDefined();
+  });
+});
+
+describe('Our dispatcher id carries our name', () => {
+  it('first start → we register with an id we created, which decodes to our name', () => {
+    start();
+    socket().emitOpen();
+    const register = socket().sentOfType('register_dispatcher')[0];
+    expect(register).toMatchObject({ type: 'register_dispatcher', name: 'Alice' });
+    const sentId = register?.type === 'register_dispatcher' ? register.dispatcherId : undefined;
+    expect(sentId).toBe(idStore.value);
+    expect(nameFromDispatcherId(sentId ?? '')).toBe('Alice');
+  });
+
+  it('reload → the saved id is kept (same identity); a saved id without our name is replaced', () => {
+    const saved = makeDispatcherId('Alice', 'aaaa1111');
+    idStore.save(saved);
+    start();
+    expect(idStore.value).toBe(saved);
+    app?.stop();
+
+    idStore.save('dispatcher_1a2b3c4d');
+    start();
+    expect(nameFromDispatcherId(idStore.value ?? '')).toBe('Alice');
   });
 });
 

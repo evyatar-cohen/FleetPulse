@@ -156,3 +156,10 @@ Grows as we go — each phase adds the new terms it introduces.
 - **409 Conflict** — HTTP status for "your write conflicts with the current state".
 - **503 + Retry-After** — "server busy, try again in N seconds".
 - **concurrently** — npm tool that runs several commands in one terminal (server + Vite) with prefixed output.
+- **base64url** — base64 (bytes → text using A–Z a–z 0–9) with `-` and `_` instead of `+` and `/`, no `=` padding:
+  safe inside URLs and HTTP headers. Like Python's `base64.urlsafe_b64encode`. We use it to put the dispatcher's
+  name inside their id.
+- **`TextEncoder` / `TextDecoder`** — convert text ↔ UTF-8 bytes (Python: `str.encode('utf-8')` / `bytes.decode`).
+  Needed because `btoa` alone only accepts Latin-1 characters.
+- **Presence snapshot** — a "who's online right now" list a server sends to a newly connected client. Our server
+  has none, so our clients announce themselves (D53).

@@ -531,7 +531,27 @@ Feeds the README and interview prep.
   "online, viewingTruckId null". The same empty value is sent when the detail panel closes (D51).
 - **Alternatives:** poll/refetch a list (no such endpoint); send `register_dispatcher` again (would broadcast a second
   `dispatcher_joined` and break connection counting); a new message type (server ignores unknown types).
-- **Trade-off:** names of earlier dispatchers are unknown (`dispatcher_viewing` has no name) → shown by id until they
-  rejoin. With N dispatchers, each join causes N−1 small messages — fine at dispatcher-team scale. Uses a
+- **Trade-off:** `dispatcher_viewing` has no name → earlier dispatchers were shown by id (fixed by D54). With N dispatchers, each join causes N−1 small messages — fine at dispatcher-team scale. Uses a
   convention (empty truckId) that only our client understands; an older client would show "viewing ''" (no such truck,
   so no tag appears).
+
+### D54. The dispatcher's name travels inside their id
+- **Problem (found in the browser):** a later tab showed earlier dispatchers by id — in presence AND in conflicts,
+  the audit log and route lists. The only message with a name is `dispatcher_joined`, sent only to clients already
+  connected; route events, 409 bodies and `dispatcher_viewing` carry ids only.
+- **Decision:** we choose our own id at first register (the server accepts any `dispatcherId`):
+  `dispatcher_<8 random hex>.<name as base64url>`. Pure `domain/dispatcherIdentity.ts` encodes/decodes it;
+  `dispatcherLabel()` (used by every screen) tries: name from `dispatcher_joined` → name decoded from the id → the id.
+  The id is kept in sessionStorage as before (same identity after a reload); a saved id that doesn't carry the
+  current name is replaced.
+- **Alternatives:** shared localStorage id → name map (only works for tabs in the same browser — hides the problem
+  in our test setup, fails for real dispatchers on other machines); encode the name in `viewing_truck`'s truckId
+  (abuses a field with another meaning, only fixes presence, not conflicts/audit log); keep ids (D53 limitation).
+- **Why:** one small pure module fixes names everywhere, for anyone whose id we ever see — even dispatchers who left
+  before we opened the app. No server change.
+- **Trade-off:** longer ids; the name is fixed at registration (a new name → a new identity); the name is
+  client-provided — the same trust as the server's own `name` field. Decoded names are treated as untrusted input:
+  invalid base64/UTF-8 or > 40 characters → ignored (show the id); React escapes them when rendering. Ids made by
+  another client/server (no `.`) just show the id.
+- **Real-world fix:** names come from login (user table / auth token) and the server sends a presence snapshot to
+  new clients (in Redis when there are several server instances); clients never invent identities.
