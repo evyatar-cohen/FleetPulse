@@ -339,3 +339,48 @@ fetch/EventSource/WebSocket), and its `stop()` makes React StrictMode's dev doub
 what it needs, the order (WS → registered → fleet → SSE) would be scattered and things could start twice.
 
 *My answer: "to run things in order" — right, but only one of the three reasons.*
+
+---
+
+## Phase 5 — Routes
+
+### Q28. A 409 comes back on a route update. How do you know WHO caused it, given the delayed 409 has no "who"?
+**One-liner:** Every successful change is broadcast on the WebSocket and recorded in our audit log with its route
+version; the change that beat us is the entry with `version === currentVersion` from the 409. Fallbacks: our stored
+route at that version, then the 409 body, then reload routes once.
+
+**Detail:**
+- The body is trusted LAST: server.js answers `lastModifiedBy: route.lastModifiedBy || route.assignedBy`, so after a
+  reassign (which doesn't set lastModifiedBy) the immediate 409 names the route's creator, not who changed it.
+- The WS event usually arrives before the delayed 409 but isn't guaranteed (different connections) → `needs_refresh`
+  → reload routes once → describe again; still unknown → "changed by another dispatcher" (no endless polling).
+- If the change that beat us was made by our own id and the route already has our values → "already applied"
+  (our earlier attempt, e.g. a retry after a timeout, worked).
+- "Apply mine" is offered only if we hold the current version and the transition is still allowed from the current
+  status (e.g. not if they completed it).
+
+### Q29. Do you update the UI optimistically when a dispatcher changes a route?
+**One-liner:** No — pessimistic: "saving…" until the server answers, and the new data comes from the WS event. A PATCH
+can return 409 up to 1 s later (QUIRK #8), so an optimistic update would jump back on a conflict.
+
+**Detail:**
+- One request per action, ≤ 10 s; writes are never retried automatically (a lost answer may hide a success).
+- Outcomes: success / already applied / conflict (who + what + options) / truck taken / invalid (our rules, nothing
+  sent) / error (network/timeout → manual Retry).
+- The server broadcasts the WS event just before answering, so the screen is up to date when "saving…" ends; the
+  action never writes the route itself → one source of truth and a complete audit log.
+- Retry safety: if the route already shows the wanted status → "already applied" without sending; if the store
+  hasn't seen it yet → 409 → reload → our id + our values → "already applied".
+
+### Q30. Reassign has no version check on the server. How do you protect against two dispatchers reassigning at once?
+**One-liner:** We can't prevent it from the client — we narrow the window and make it visible: before sending, warn if
+the route changed since the dialog opened; after sending, flag another dispatcher's reassign of the same route within
+±5 s. The real fix is an `If-Match` check on the server.
+
+**Detail:**
+- Before: the dialog remembers the route version; if it moved → "changed by Bob since you opened this (reassigned
+  to Truck Echo) — continue?" (who/what from the audit log). Nothing sent until confirmed.
+- After: our success carries the server's `reassignedAt`; the UI watches the audit log for another dispatcher's
+  reassign of that route within ±5 s → "Bob also reassigned this route at the same time — it's now on Truck Echo".
+- The target-busy 409 still protects one case: two dispatchers moving routes onto the same free truck.
+- Window trade-off: shorter misses slow clashes, longer flags unrelated reassigns.

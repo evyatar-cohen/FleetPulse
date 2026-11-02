@@ -406,3 +406,45 @@ Feeds the README and interview prep.
 - **Why:** the brief asks for input validation; blocking "create on maintenance" is consistent with the server's own
   reassign rule.
 - **Real-world note:** the backend must enforce these too — client checks are for UX, not security.
+
+### D42. Describing a 409: who and what, from the most reliable source
+- **Decision:** pure `describeConflict()`. "Who/what" priority: (1) our audit-log entry for the route with
+  `version === currentVersion` (the exact change that beat us); (2) our stored route if already at `currentVersion`
+  (newest of `lastModifiedBy` / `reassignedBy`); (3) the 409 body's `lastModifiedBy`. If none → "needs refresh": the app
+  reloads routes ONCE and describes again; still unknown → "changed by another dispatcher". If the change was made by
+  our own id and the route already has what we wanted → "already applied" (our earlier attempt succeeded). Options:
+  keep theirs / apply mine (only if the transition is still allowed from the CURRENT status) / cancel.
+- **Why the body comes last:** server.js answers `lastModifiedBy: route.lastModifiedBy || route.assignedBy` — after a
+  reassign (which doesn't set lastModifiedBy) the immediate 409 names the route's CREATOR, not who changed it. The
+  delayed 409 has no "who" at all (QUIRK #8).
+- **Alternatives:** trust the 409 body; poll until the WS event arrives.
+
+### D43. Route actions: pessimistic ("saving…"), one request, no automatic retry
+- **Decision:** `src/app/routeActions.ts` (create / update status / apply-mine-after-conflict / reassign). Each checks
+  the client rules first (nothing sent if invalid), sends ONE request (≤ 10 s timeout) while the UI shows "saving…",
+  and returns an outcome: success, already applied, conflict (described by D42 — reloading routes once inside the
+  saving phase if "who" is unknown), truck taken (POST 409, with `byMe`), invalid, or error (network/timeout →
+  retryable via a manual Retry button). The screen updates from the WS event (sent by the server just before the
+  HTTP answer), so the action doesn't write the route itself — that also keeps the audit log complete.
+- **Alternatives:** optimistic update + rollback (a PATCH can 409 up to 1 s later → the status would jump back).
+- **Why:** never show unconfirmed data; one source of truth (server → WS → store).
+- **Trade-off:** 0.2–1 s "saving…" per action (the server's artificial delay).
+- **D43 addendum:** if the route already has the wanted status (e.g. a manual Retry after a timeout whose first attempt
+  worked), the action returns "already applied" without sending. The 409-based detection (D42) covers the case where
+  the store hasn't seen that change yet (409 → reload routes → our id + our values → already applied).
+
+### D44. Reassign race (no server lock): check before sending, detect after
+- **Decision:** (1) the reassign dialog remembers the route version when opened; before sending, if the version moved,
+  the action returns "changed since opened" (who + what from the audit log) and the dispatcher must confirm again.
+  (2) After a successful reassign, another dispatcher's `route_reassigned` for the same route within ±5 s of ours is
+  shown as "X also reassigned this route at the same time — it's now on truck Y". Pure functions over the audit log.
+- **Alternatives:** nothing (silent last-write-wins — the brief's "nobody knew who did what" story); polling.
+- **Why:** `PUT /reassign` has no version check, so the client can only narrow the window and make clashes visible.
+- **Limitation (interview point):** this doesn't PREVENT a clash; the real fix is an `If-Match` check on the server.
+  The 5 s window is a trade-off (shorter misses slow clashes, longer flags unrelated reassigns).
+
+### D45. Confirmations only on critical route actions
+- **Decision:** a confirmation dialog before Cancel route, Complete route and Reassign; not before Start route.
+- **Why:** the brief asks for "confirmation on critical actions"; cancel/complete are final and reassign moves work
+  between drivers (and has no server lock). Start is routine and easy to correct — confirming it would train
+  dispatchers to click "OK" without reading.
