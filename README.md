@@ -10,7 +10,7 @@ The map is a plain SVG coordinate grid (the brief says map quality is not graded
 
 ---
 
-## Setup
+## Setup instructions
 
 Requirements: **Node.js 22+** (tested with Node 24), npm, latest Chrome.
 
@@ -31,7 +31,7 @@ different name** to see presence, "who is viewing", and route conflicts between 
 
 ---
 
-## Architecture
+## Architecture overview — how data flows from SSE/WS to the UI
 
 Four layers; each depends only on the layers below it.
 
@@ -160,7 +160,7 @@ important ones:
 
 ---
 
-## Multi-dispatcher conflicts
+## How multi-dispatcher conflicts are handled
 
 The brief's story: two trucks sent to the same job, a route changed by two people, and "nobody knew who did what".
 
@@ -197,7 +197,7 @@ click OK without reading).
 
 ---
 
-## Known issues and limitations
+## Known issues or limitations
 
 - **Presence depends on clients announcing themselves.** The server never sends a "who's online" list and only tells
   *existing* clients about a new one. Our clients answer every `dispatcher_joined` by re-sending `viewing_truck`
