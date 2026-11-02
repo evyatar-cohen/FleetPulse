@@ -147,6 +147,11 @@ th, td {
   font-size: 12px;
 }
 
+.sensor-flag.low-fuel {
+  color: #c62828;
+  font-weight: 600;
+}
+
 .muted {
   color: #888;
 }

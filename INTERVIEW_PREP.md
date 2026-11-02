@@ -401,3 +401,13 @@ route history.
 - Reassign clash (no server lock): the dialog warns if the route changed since it opened; after success, a clash
   within ±5 s shows "<who> also reassigned this route at the same time — it's now on <truck>".
 - Nothing is shown optimistically, so nobody ever sees a change that didn't happen.
+
+### Q32. How do you avoid false low-fuel alerts but never miss a real one?
+**One-liner:** The alert reads only the TRUSTED fuel value from the fuel detector, compared with the vehicle profile's
+threshold (15%): a glitch to 0% keeps the last good value (no alert); a real low level stays alerted even through a
+glitch; a real 0% that holds is confirmed after 6 s and alerted.
+
+**Detail:**
+- Unverified sudden rise (10% → 80%): the trusted value stays 10% until confirmed → the alert stays on (safe side).
+- Out-of-range readings (-5%) are sensor faults → trusted value kept.
+- Tested end to end through the real detector (the server's fuel takes hours to get low, never below 5%).

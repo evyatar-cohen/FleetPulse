@@ -473,3 +473,13 @@ Feeds the README and interview prep.
   areas stack and the page scrolls.
 - **Why:** user request — a dispatcher should see the fleet, the routes and the history at the same time without
   scrolling the page.
+
+### D49. Low-fuel alert on the TRUSTED fuel value only
+- **Decision:** `isLowFuel()` = trusted fuel (`sensors.fuel.value`) < `profile.lowFuelPercent` (15% for trucks). Shown
+  as a red "⛽ low fuel" flag in the truck list (it outranks "checking"/"sensor fault").
+- **Why:** the brief's "don't trigger false low-fuel alerts" assumes there are low-fuel alerts. Using the trusted value:
+  a glitch to 0% never alerts (trusted value stays at the last good level); a real low level stays alerted through a
+  glitch; an unverified sudden "rise" keeps the alert until confirmed (safe direction); a real 0% that holds is
+  alerted after the 6 s window. Threshold per vehicle type (tank size).
+- **Verification:** the mock server's real fuel takes hours to get low and never goes below 5% — the behavior is
+  verified with tests driven through the real fuel detector (incl. the captured glitch sequence), not in the browser.
